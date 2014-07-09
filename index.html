@@ -2,24 +2,33 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Basic Bootstrap Template</title>
+  <title>Foo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container-fluid">
     <div class="row-fluid">
-      <div class="span1">
-        I'm left
+      <div class="col-md-1">
+        I'm leftx sfgsdf sdf sdf sdf sdf sdf sd fsdf sd fsd f
       </div>
-      <div class="span11">
-        Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello
-        Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello
-        Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello
+      <div class="col-md-11">
+        <canvas id="myCanvas" width="300" height="300"></canvas>
       </div>
     </div>
   </div>
   <script src="http://code.jquery.com/jquery.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      var canvas = $("#myCanvas");
+      var context = canvas.getContext("2d");
+      context.beginPath();
+      context.moveTo(0,0);
+      context.lineTo(canvas.width, canvas.height);
+      context.stroke();
+    });
+  </script>
 </body>
 </html>
