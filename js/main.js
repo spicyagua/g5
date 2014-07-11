@@ -48,11 +48,12 @@ EG5.Game.prototype = {
     var dotCenter = this.dotToXY(dotCoord.x, dotCoord.y);
     if(this.currentDot.isSet()) {
       //Check for clicking on same dot or one not adjacent (unset)
+      var xDiff = Math.abs(this.currentDot.getX()-dotCoord.x);
+      var yDiff = Math.abs(this.currentDot.getY()-dotCoord.y);
       if(
-        ((this.currentDot.getX() == dotCoord.x) &&
-        (this.currentDot.getY() == dotCoord.y)) ||
-        (Math.abs(this.currentDot.getX()-dotCoord.x)!=1) ||
-        (Math.abs(this.currentDot.getY()-dotCoord.y)!=1)
+        (xDiff == 0 && yDiff == 0) || //same dot
+        (xDiff > 1) ||
+        (yDiff > 1)
         ) {
         console.log("Clear current dot " + this.currentDot);
         var oldDotCenter = this.dotToXY(this.currentDot.getX(), this.currentDot.getY());
@@ -61,6 +62,7 @@ EG5.Game.prototype = {
         return;
       }
       //Yippie!! We have a line to draw
+      this.drawLine({x: this.currentDot.getX(), y:this.currentDot.getY()}, dotCenter);
     }
     else {
       //Make sure there are possible connections to this dot still available
@@ -181,6 +183,43 @@ EG5.Game.prototype = {
     ctx.fillStyle = gradient;
     ctx.fill();
 
+  },
+
+
+  //Passed points are in dot coordinates
+  drawLine: function(d1, d2) {
+    if((d1.x>d2.x) || (d1.y>d2.y)) {
+      var foo = d1;
+      d1 = d2;
+      d2 = foo;
+    }
+
+    xy1 = this.dotToXY(d1.x, d1.y);
+    xy2 = this.dotToXY(d2.x, d2.y);
+
+    var ctx = this.ctx;
+    var halfLineWidth = this.params.dotRadius;
+
+    ctx.beginPath();
+
+    if(d1.x == d2.x) {
+      //Vertical
+      ctx.arc(200, 200, halfLineWidth, 1.5*Math.PI, 0.5*Math.PI, false);
+      ctx.lineTo(500, 250);
+      ctx.arc(500, 200, 50, 0.5*Math.PI, 1.5*Math.PI, false);
+      ctx.lineTo(200, 150);
+    }
+    else {
+      //Horizontal
+      ctx.arc(xy1.x, xy1.y, halfLineWidth, 1.5*Math.PI, 0.5*Math.PI, false);
+      ctx.lineTo(xy2.x, xy2.y+halfLineWidth);
+      ctx.arc(xy2.x, xy2.y, halfLineWidth, 0.5*Math.PI, 1.5*Math.PI, false);
+      ctx.lineTo(xy1.x, xy1.y-halfLineWidth);
+
+    }
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,255, 255, 1)";
+    ctx.fill();
   },
 
   foo: function() {
