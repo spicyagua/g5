@@ -4,17 +4,15 @@
   <meta charset="utf-8">
   <title>Foo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+  <!-- <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"> -->
+  <link rel="stylesheet" type="text/css" href="css/normalize.css">
 
   <style>
-    #wholeContent {
-      position: absolute;
-      left: 50%;
-      right: 50%
-    }
-    #myCanvas {
-      width: 100%;
-      height: 100%;
+
+    * {margin:0; padding:0;}
+
+    html, body {
+      width:100%; height:100%;
     }
 
   </style>
@@ -31,6 +29,12 @@
 
   <script>
     $(document).ready(function() {
+      document.documentElement.style.overflow = 'hidden';  // firefox, chrome
+      document.body.scroll = "no"; // ie only
+      toFullsize();
+    });
+
+    function toFullsize() {
 
       console.log("Ready invoked");
       var wholeContent = $("#wholeContent")[0];
@@ -38,11 +42,11 @@
       winWidth = window.innerWidth;
       winHeight = window.innerHeight;
 
-      wholeContent.style.width=winWidth;
-      wholeContent.style.height=winHeight;
+//      wholeContent.style.width=winWidth;
+//      wholeContent.style.height=winHeight;
 
-      wholeContent.style.marginTop = (-winHeight / 2) + "px";
-      wholeContent.style.marginLeft = (-winWidth / 2) + "px";
+//      wholeContent.style.marginTop = 0 + "px";
+//      wholeContent.style.marginLeft = 0 + "px";
 
       var canvas = $("#myCanvas")[0];
       canvas.width = winWidth;
@@ -50,10 +54,12 @@
 
       console.log("Canvas height: " + canvas.height);
       console.log("Canvas width: " + canvas.width);
+      console.log("Canvas x: " + canvas.x);
+      console.log("Canvas y: " + canvas.y);
 
       drawNow();
 
-    });
+    }
 
     function drawNow() {
       console.log("drawNow invoked");
