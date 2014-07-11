@@ -66,21 +66,56 @@
       var canvas = $("#myCanvas")[0];
       var ctx = canvas.getContext("2d");
 
-      ctx.fillStyle = "rgb(200,0,0)";
-      ctx.fillRect(0,0,canvas.width-20, canvas.height-20);
-
+      ctx.fillStyle = "rgb(0,0,0)";
+      ctx.fillRect(0,0,canvas.width, canvas.height);
+/*
       ctx.fillStyle = "rgba(0,0,200, 0.5)";
       ctx.fillRect(20, 20, canvas.width, canvas.height);
+*/
+
+
+      ctx.font = 'italic 40pt Calibri';
+      ctx.fillStyle = "white"
+      ctx.fillText(canvas.width + "x" + canvas.height, 150, 100);
+
+
+      drawCircle(200, 200);
+      drawCircle(500, 200);
+
 
       ctx.beginPath();
+      ctx.strokeStyle = "white"
       ctx.moveTo(0,0);
       ctx.lineTo(canvas.width, canvas.height);
       ctx.moveTo(canvas.width, 0);
       ctx.lineTo(0,canvas.height);
       ctx.stroke();
 
-      ctx.font = 'italic 40pt Calibri';
-      ctx.fillText(canvas.width + "x" + canvas.height, 150, 100);
+
+//      ctx.save();
+      ctx.beginPath();
+      ctx.arc(200, 200, 50, 1.5*Math.PI, 0.5*Math.PI, false);
+      ctx.lineTo(500, 250);
+      ctx.arc(500, 200, 50, 0.5*Math.PI, 1.5*Math.PI, false);
+      ctx.lineTo(200, 150);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,255, 255, 1)";
+      ctx.fill();
+
+//      ctx.restore();
+
+    }
+
+    function drawCircle(x, y) {
+      var canvas = $("#myCanvas")[0];
+      var ctx = canvas.getContext("2d");
+      ctx.beginPath();
+      ctx.arc(x, y, 50, 2*Math.PI, false);
+      var gradient = ctx.createRadialGradient(x, y, 30, x, y, 50);
+      gradient.addColorStop(0, "rgba(255,255, 255, 1)");
+      gradient.addColorStop(1, "rgba(220, 220, 220, 1)");
+      ctx.fillStyle = gradient;
+      ctx.fill();
     }
   </script>
 </body>
