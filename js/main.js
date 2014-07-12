@@ -1,13 +1,17 @@
+//TODO a "bar" across the bottom with a box with the color w/ a number by/in it (current score).  Some arrow or other indicator of who is "up"
+//Such a bar may also have a "quit" button and launch to something like an options page.
+
 var EG5 = EG5 || {};
 
 EG5.Game = function(canvas) {
+
   this.params = {
-    dotSep: 50,
+    dotSep: 70,
     dotRadius: 10,
     dotInnerColor: "rgba(250,250, 250, 1)",
-    dotOuterColor: "rgba(220, 220, 220, 0.4)",
-    activeDotInnerColor: "rgba(238, 229, 152, 1)",
-    activeDotOuterColor: "rgba(182, 175, 116, 0.4)",
+    dotOuterColor: "rgba(220, 220, 220, 0.6)",
+    activeDotInnerColor: "rgba(245, 233, 20, 1)",
+    activeDotOuterColor: "rgba(182, 175, 116, 0.6)",
     cvsWidth: 0,
     cvsHeight: 0,
     cvsOffsetX: 0,
@@ -33,6 +37,21 @@ EG5.Game = function(canvas) {
       toString: function() {return "X: " + x + ", Y: " + y;}
     }
   }());
+  
+  this.lastLine = (function() {
+    var emptyObj = {};
+    var d1 = emptyObj;
+    var d2 = emptyObj;
+
+    return {
+      getD1: function() {return x;},
+      getD2: function() {return y;},
+      isSet: function() {return d1 == emptyObj},
+      clear: function() {x=emptyObj; y=emptyObj},
+      setDots: function(d1,d2) {d1 = d1; d2 = d2;},
+      toString: function() {return "D1 (" + d1.x + "," + d1.y + ") D2 (" + d2.x + "," + d2.y + ")";}
+    }
+  }());  
 };
 
 EG5.Game.prototype = {
@@ -51,9 +70,9 @@ EG5.Game.prototype = {
       var xDiff = Math.abs(this.currentDot.getX()-dotCoord.x);
       var yDiff = Math.abs(this.currentDot.getY()-dotCoord.y);
       if(
-        (xDiff == 0 && yDiff == 0) || //same dot
-        (xDiff > 1) ||
-        (yDiff > 1)
+        (xDiff > 1) || //more than one away
+        (yDiff > 1) || //more than one away
+        (xDiff == yDiff) //same dot, or diagnol        
         ) {
         console.log("Clear current dot " + this.currentDot);
         var oldDotCenter = this.dotToXY(this.currentDot.getX(), this.currentDot.getY());
@@ -62,7 +81,10 @@ EG5.Game.prototype = {
         return;
       }
       //Yippie!! We have a line to draw
-      this.drawLine({x: this.currentDot.getX(), y:this.currentDot.getY()}, dotCenter);
+      this.drawLine({x: this.currentDot.getX(), y:this.currentDot.getY()}, dotCoord, this.params.dotInnerColor);
+      var oldDotCenter = this.dotToXY(this.currentDot.getX(), this.currentDot.getY());
+      this.drawDot(oldDotCenter.x, oldDotCenter.y, this.params.dotInnerColor, this.params.dotOuterColor);
+      this.currentDot.clear();
     }
     else {
       //Make sure there are possible connections to this dot still available
@@ -168,16 +190,20 @@ EG5.Game.prototype = {
 
     return {
       x: x,
-      y: y
+      y: y,
+      toString: function() {
+        return "X: " + x + ", Y: " + y;
+      }
     };
   },
 
   drawDot: function(x,y, ic, oc) {
+//    if(true) {return;}
     console.log("Draw dot: " + x + ", " + y + ", IC: " + ic);
     var ctx = this.ctx;
     ctx.beginPath();
     ctx.arc(x, y, this.params.dotRadius, 2*Math.PI, false);
-    var gradient = ctx.createRadialGradient(x, y, Math.floor(this.params.dotRadius*0.7), x, y, this.params.dotRadius);
+    var gradient = ctx.createRadialGradient(x, y, Math.floor(this.params.dotRadius*0.5), x, y, this.params.dotRadius);
     gradient.addColorStop(0, ic);
     gradient.addColorStop(1, oc);
     ctx.fillStyle = gradient;
@@ -186,13 +212,17 @@ EG5.Game.prototype = {
   },
 
 
-  //Passed points are in dot coordinates
-  drawLine: function(d1, d2) {
+  //Passed points are in dot coordinates.  Always draws
+  //rtl or ttb
+  drawLine: function(d1, d2, c) {
     if((d1.x>d2.x) || (d1.y>d2.y)) {
       var foo = d1;
       d1 = d2;
       d2 = foo;
     }
+    
+//    console.log("Dot1: " + d1.x + "," + d1.y);
+//    console.log("Dot2: " + d2.x + "," + d2.y);    
 
     xy1 = this.dotToXY(d1.x, d1.y);
     xy2 = this.dotToXY(d2.x, d2.y);
@@ -204,13 +234,15 @@ EG5.Game.prototype = {
 
     if(d1.x == d2.x) {
       //Vertical
-      ctx.arc(200, 200, halfLineWidth, 1.5*Math.PI, 0.5*Math.PI, false);
-      ctx.lineTo(500, 250);
-      ctx.arc(500, 200, 50, 0.5*Math.PI, 1.5*Math.PI, false);
-      ctx.lineTo(200, 150);
+      ctx.arc(xy1.x, xy1.y, halfLineWidth, 0, 1*Math.PI, false);
+      ctx.lineTo(xy2-halfLineWidth, xy2.y);
+      ctx.arc(xy2.x, xy2.y, halfLineWidth, 1*Math.PI, 0, false);
+      ctx.lineTo(xy1.x+halfLineWidth, xy1.y);
     }
     else {
       //Horizontal
+//      console.log("First point: " + xy1.x + "," + xy1.y);
+//      console.log("Second point: " + xy2.x + "," + xy2.y);      
       ctx.arc(xy1.x, xy1.y, halfLineWidth, 1.5*Math.PI, 0.5*Math.PI, false);
       ctx.lineTo(xy2.x, xy2.y+halfLineWidth);
       ctx.arc(xy2.x, xy2.y, halfLineWidth, 0.5*Math.PI, 1.5*Math.PI, false);
@@ -218,13 +250,11 @@ EG5.Game.prototype = {
 
     }
     ctx.closePath();
-    ctx.fillStyle = "rgba(255,255, 255, 1)";
+    ctx.fillStyle = c;
     ctx.fill();
   },
 
-  foo: function() {
-    console.log("Foo called");
-  }
+
 };
 
 EG5.app = (function() {
@@ -242,10 +272,11 @@ EG5.app = (function() {
     console.log("Canvas height: " + canvas.height);
     console.log("Canvas width: " + canvas.width);
 
-    //Debug
     var ctx = canvas.getContext("2d");
     ctx.fillStyle = "rgb(32,32,32)";
     ctx.fillRect(0,0,canvas.width, canvas.height);
+/*
+    //Debug    
     ctx.beginPath();
     ctx.strokeStyle = "white"
     ctx.moveTo(0,0);
@@ -253,10 +284,10 @@ EG5.app = (function() {
     ctx.moveTo(canvas.width, 0);
     ctx.lineTo(0,canvas.height);
     ctx.stroke();
-
+*/
     var game = new EG5.Game(canvas);
     game.beginGame();
-    game.foo();
+
 
   };
   return {
