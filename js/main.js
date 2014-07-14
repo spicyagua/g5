@@ -30,19 +30,35 @@ EG5.Dimension.prototype = {
 
 /**
  * When drawing lines, they area always drawn from the canvas origin as the starting point.
- * so they are always left-to-right (lrt) or top-to-bottom (ttb).
+ * so they are always left-to-right (lrt) or top-to-bottom (ttb).  The constructor will
+ * ensure this order is maintained (i.e. "p1" is the origin of any potential line)
  */
 EG5.Line = function(p1, p2) {
+  if(p1.x == p2.x) {
+    this.horizontal = false;
+    //vertical
+    if(p1.y>p2.y) {
+      this.p1 = p2;
+      this.p2 = p1;
+      return;
+    }
+  }
+  else {
+    this.horizontal = true;
+    //horizontal
+    if(p2.x < p1.x) {
+      this.p1 = p2;
+      this.p2 = p1;
+      return;
+    }
+  }
   this.p1 = p1;
   this.p2 = p2;
 };
-
-/**
- *
- */
 EG5.Line.prototype = {
-
+  toString: function() {return (this.horizontal?"Horizontal":"Vertical") + " line from " + this.p1 + " to " + this.p2;}
 };
+
 
 EG5.Game = function(canvas) {
 
@@ -57,7 +73,9 @@ EG5.Game = function(canvas) {
     cvsDimXY: new EG5.Dimension(0,0),
     cvsDimDots: new EG5.Dimension(0,0),
     boardTLXY: 0,
-    boardBRXY:0
+    boardBRXY:0,
+    p1Color: "#7ebce6",
+    p2Color: "#ba3140"
 
   };
   this.canvas = canvas;
@@ -72,39 +90,11 @@ EG5.Game = function(canvas) {
 
   console.log("Canvas dimensions" + this.params.cvsDimXY);
 
-  //Currently selected dot.  x/y -1 if none selected
-  this.currentDot = (function() {
-    var dot = {x:-1,y:-1};
+  this.player1Count = 0;
+  this.player2Count = 0;
+  this.player1Current = true;
 
-    return {
-      getX: function() {return dot.x;},
-      getY: function() {return dot.y;},
-      isSet: function() {return dot.x>=0;},
-      clear: function() {dot.x=-1; dot.y=-1},
-      setXY: function(x1,y1) {dot.x = x1; dot.y = y1;},
-      setDot: function(foo) {dot.x = foo.x; dot.y = foo.y;},
-      getDot: function() {return dot;},
-      toString: function() {return "Dot coords.  X: " + dot.x + ", Y: " + dot.y;}
-    }
-  }());
 
-  /**
-   * Holds 2 dots.  A "dot" is an object with {x,y}
-   */
-  this.lastLine = (function() {
-    var emptyObj = {};
-    var d1 = emptyObj;
-    var d2 = emptyObj;
-
-    return {
-      getD1: function() {return x;},
-      getD2: function() {return y;},
-      isSet: function() {return d1 == emptyObj},
-      clear: function() {x=emptyObj; y=emptyObj},
-      setDots: function(d1,d2) {d1 = d1; d2 = d2;},
-      toString: function() {return "D1 (" + d1.x + "," + d1.y + ") D2 (" + d2.x + "," + d2.y + ")";}
-    }
-  }());
 };
 
 EG5.Game.prototype = {
@@ -130,6 +120,7 @@ EG5.Game.prototype = {
       (y<p.boardTLXY.y) ||
       (y>p.boardBRXY.y) ) {
       //Not on the "board".  Return
+      console.log("Click outside board");
       return;
     }
 
@@ -139,37 +130,64 @@ EG5.Game.prototype = {
       one outgoing.  The left column has no incomming horozontal vectors, etc.  The thing I forgot first time was in the checking
       of bounds for the bottom and right-most columns.
     */
-
     var newDotCoordDot = this.xyToDot(x,y);
     var newDotCenterXY = this.dotToXY(newDotCoordDot.x, newDotCoordDot.y);
 
-    if(this.currentDot.isSet()) {
+    if(this.currentDot) {
+
+      var shouldDrawLine = true;
+
       //Check for clicking on same dot or one not adjacent (unset)
-      var xDiff = Math.abs(this.currentDot.getX()-newDotCoordDot.x);
-      var yDiff = Math.abs(this.currentDot.getY()-newDotCoordDot.y);
+      var xDiff = Math.abs(this.currentDot.x-newDotCoordDot.x);
+      var yDiff = Math.abs(this.currentDot.y-newDotCoordDot.y);
       if(
         (xDiff > 1) || //more than one away
         (yDiff > 1) || //more than one away
         (xDiff == yDiff) //same dot, or diagnol
         ) {
+        console.log("Won't draw line since line >1 unit or same dot");
+        shouldDrawLine = false;
+        /*
         console.log("Clear current dot " + this.currentDot);
-        var oldDotCenter = this.dotToXY(this.currentDot.getX(), this.currentDot.getY());
-        this.drawDot(oldDotCenter.x, oldDotCenter.y, this.params.dotInnerColor, this.params.dotOuterColor);
-        this.currentDot.clear();
+        var oldDotCenterXY = this.dotToXY(this.currentDot);
+        this.drawDot(oldDotCenterXY, this.params.dotInnerColor, this.params.dotOuterColor);
+        delete this.currentDot;
         return;
+        */
+      }
+      var newLine = new EG5.Line(this.currentDot, newDotCoordDot);
+      if(this.lineExists(newLine)) {
+        console.log("Won't draw line since line exists");
+        shouldDrawLine = false;
       }
 
-      //***TODO*** Make sure there isn't already a line in that spot.  It could be a legal dot
-      //to click (the first one), but not the second.
+      if(shouldDrawLine) {
+        this.drawLine(
+          this.currentDot,
+          newDotCoordDot,
+          this.params.dotInnerColor);
+        console.log("Recording line: " + newLine.toString());
+        this.recordLine(newLine);
 
-      //Yippie!! We have a line to draw
-      this.drawLine(
-        this.currentDot.getDot(),
-        newDotCoordDot,
-        this.params.dotInnerColor);
-      var oldDotCenter = this.dotToXY(this.currentDot.getX(), this.currentDot.getY());
-      this.drawDot(oldDotCenter.x, oldDotCenter.y, this.params.dotInnerColor, this.params.dotOuterColor);
-      this.currentDot.clear();
+        var newBoxes = this.testLineClosedBox(newLine);
+        if(newBoxes.length>0) {
+          console.log("Line created: " + newBoxes.length + " boxes");
+          for(var i = 0; i<newBoxes.length; i++) {
+            console.log("Draw and record box: " + newBoxes[i]);
+            this.boxes[newBoxes[i].x][newBoxes[i].y] = true;//Do I need this for anything?  TODO I don't think I need this structure.
+            this.drawBox(newBoxes[i], (this.player1Current?p.p1Color:p.p2Color));
+          }
+        }
+        else {
+          console.log("Line did not close box");
+          this.switchPlayers();
+        }
+      }
+
+      //Clear previous highlight
+      var oldDotCenterXY = this.dotToXY(this.currentDot);
+      this.drawDot(oldDotCenterXY, this.params.dotInnerColor, this.params.dotOuterColor);
+      delete this.currentDot;
     }
     else {
       //Make sure there are possible connections to this dot still available
@@ -203,14 +221,18 @@ EG5.Game.prototype = {
       }
       if(canHighlight) {
         console.log("Set current dot");
-        this.currentDot.setXY(newDotCoordDot.x, newDotCoordDot.y);
-        this.drawDot(newDotCenterXY.x, newDotCenterXY.y, this.params.activeDotInnerColor, this.params.activeDotOuterColor);
+        this.currentDot = newDotCoordDot;
+        this.drawDot(newDotCenterXY, this.params.activeDotInnerColor, this.params.activeDotOuterColor);
       }
     }
 
 
 
 
+  },
+
+  switchPlayers: function() {
+    this.player1Current = !this.player1Current;
   },
 
   beginGame: function() {
@@ -251,18 +273,97 @@ EG5.Game.prototype = {
     //Create data structures
     this.horLines = this.createArrays(numHorDots, numVerDots, false);
     this.verLines = this.createArrays(numHorDots, numVerDots, false);
+    this.boxes = this.createArrays(numHorDots-1, numVerDots-1, false);
 
 
     var xLoc = params.halfDotSep;
     for(var i = 0; i<numHorDots; i++) {
       var yLoc = params.halfDotSep;
       for(var j = 0; j<numVerDots; j++) {
-        this.drawDot(xLoc, yLoc, params.dotInnerColor, params.dotOuterColor);
+        this.drawDot({x:xLoc, y:yLoc}, params.dotInnerColor, params.dotOuterColor);
         yLoc+=params.dotSep;
       }
       xLoc+=params.dotSep;
     }
 
+  },
+
+  /**
+   * Returns an array with the coordinates of each box closed (0, 1, or 2 in length).
+   */
+  testLineClosedBox: function(l) {
+    //TODO This is a very goofy implementation using arrays
+    //like this
+    var ret = [];
+    //Every line drawn can close at most 2 boxes.  Edge lines may close only one.
+    if(l.horizontal) {
+      //Check above
+      if(
+        (l.p1.y > 0) && //Don't check if top-most row
+        (
+          this.horLines[l.p1.x][l.p1.y-1] && //top of upper box
+          this.verLines[l.p1.x][l.p1.y-1] && //left of upper box
+          this.verLines[l.p2.x][l.p1.y-1]
+        )) {
+        ret.push(new EG5.Point(l.p1.x, l.p1.y-1));
+      }
+      //Check below
+      if(
+        (l.p1.y != (this.params.cvsDimDots.height-1)) && //make sure not last row
+        (
+          this.verLines[l.p1.x][l.p1.y] && //Left
+          this.verLines[l.p2.x][l.p2.y] && //right
+          this.horLines[l.p1.x][l.p2.y+1]//bottom
+        )) {
+        ret.push(new EG5.Point(l.p1.x, l.p1.y));
+      }
+    }
+    else {
+      //Check left
+      if(
+        (l.p1.x>0) && //Don't check if first column
+        (
+          this.horLines[l.p1.x-1][l.p1.y] && //top
+          this.horLines[l.p2.x-1][l.p2.y] &&//Bottom
+          this.verLines[l.p1.x-1][l.p1.y]//left
+        )
+        ) {
+        ret.push(new EG5.Point(l.p1.x-1, l.p1.y));
+      }
+      if(
+        (l.p1.x != this.params.cvsDimDots.width-1) && //Don't check last column
+        (
+          this.horLines[l.p1.x][l.p1.y] && //top
+          this.horLines[l.p2.x][l.p2.y] && //bottom
+          this.verLines[l.p1.x+1][l.p1.y]
+        )
+        ) {
+        ret.push(new EG5.Point(l.p1.x, l.p1.y));
+      }
+    }
+    return ret;
+  },
+
+  /**
+   * Marks a line as existing between two
+   * points, rtl or ttb
+   */
+  recordLine: function(l) {
+    if(l.horizontal) {
+      this.horLines[l.p1.x][l.p1.y] = true;
+    }
+    else {
+      this.verLines[l.p1.x][l.p1.y] = true;
+    }
+  },
+
+  /**
+   * Tests if a line exists
+   */
+  lineExists: function(l) {
+    return l.horizontal?
+      this.horLines[l.p1.x][l.p1.y]:
+      this.verLines[l.p1.x][l.p1.y];
   },
 
   createArrays: function(x,y, val) {
@@ -316,14 +417,36 @@ EG5.Game.prototype = {
     return new EG5.Point(this.params.halfDotSep + (point.x*this.params.dotSep), this.params.halfDotSep + (point.y*this.params.dotSep));
   },
 
-  drawDot: function(x,y, ic, oc) {
+  drawDot: function(d, ic, oc) {
     var ctx = this.ctx;
     ctx.beginPath();
-    ctx.arc(x, y, this.params.dotRadius, 2*Math.PI, false);
-    var gradient = ctx.createRadialGradient(x, y, Math.floor(this.params.dotRadius*0.5), x, y, this.params.dotRadius);
+    ctx.arc(d.x, d.y, this.params.dotRadius, 2*Math.PI, false);
+    var gradient = ctx.createRadialGradient(d.x, d.y, Math.floor(this.params.dotRadius*0.5), d.x, d.y, this.params.dotRadius);
     gradient.addColorStop(0, ic);
     gradient.addColorStop(1, oc);
     ctx.fillStyle = gradient;
+    ctx.fill();
+
+  },
+
+  /**
+   * The point is the point of the upper-left corner, in DOT notation (not
+   * XY).
+   */
+  drawBox: function(p, color) {
+    console.log("Draw box");
+    var tlXY = this.dotToXY(p);
+    var ctx = this.ctx;
+    var sides = Math.round(0.7071*this.params.dotRadius);
+    var x = tlXY.x+sides;
+    var y = tlXY.y+sides;
+    var w = this.params.dotSep-(2*sides);
+    var h = this.params.dotSep-(2*sides);
+    ctx.beginPath();
+//    ctx.shadowBlur = 15;
+//    ctx.shadowColor = this.params.dotOuterColor;
+    ctx.fillStyle = color;
+    ctx.rect(x, y, w, h);
     ctx.fill();
 
   },
