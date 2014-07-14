@@ -3,6 +3,47 @@
 
 var EG5 = EG5 || {};
 
+EG5.Point = function(x,y) {
+  this.x = x;
+  this.y = y;
+};
+
+EG5.Point.prototype = {
+  isSet: function() {return this.x>=0;},
+  clear: function() {this.x=-1},
+  setXY: function(x1,y1) {this.x = x1; this.y = y1;},
+  assignFrom: function(foo) {this.x = foo.x; this.y = foo.y;},
+  toString: function() {return "X: " + this.x + ", Y: " + this.y;}
+};
+
+//I know this is my Java background creeping in and I recognize that 
+//this has the same effective use as the "point", but I prefer to refer to 
+//"width" vs "x".  I'd started creating some bugs for myself w/o this "type"
+EG5.Dimension = function(width, height) {
+  this.width = width;
+  this.height = height;
+};
+
+EG5.Dimension.prototype = {
+  toString: function() {return "Width: " + this.width + ", Height: " + this.height;}
+};
+
+/**
+ * When drawing lines, they area always drawn from the canvas origin as the starting point.  
+ * so they are always left-to-right (lrt) or top-to-bottom (ttb).
+ */
+EG5.Line = function(p1, p2) {
+  this.p1 = p1;
+  this.p2 = p2;
+};
+
+/**
+ * 
+ */
+EG5.Line.prototype = {
+
+};
+
 EG5.Game = function(canvas) {
 
   this.params = {
@@ -12,32 +53,45 @@ EG5.Game = function(canvas) {
     dotOuterColor: "rgba(220, 220, 220, 0.6)",
     activeDotInnerColor: "rgba(245, 233, 20, 1)",
     activeDotOuterColor: "rgba(182, 175, 116, 0.6)",
-    cvsWidth: 0,
-    cvsHeight: 0,
-    cvsOffsetX: 0,
-    cvxOffsetY: 0
+    cvsOffsetXY: new EG5.Point(0,0),    
+    cvsDimXY: new EG5.Dimension(0,0),
+    numHorDots: 0,
+    numVerDots: 0,
+    boardTLXY: 0,
+    boardBRXY:0
+    
   };
   this.canvas = canvas;
   this.ctx = canvas.getContext("2d");
   this.params.halfDotSep = Math.floor(this.params.dotSep/2);
-  this.params.cvsWidth = canvas.width;
-  this.params.cvsHeight = canvas.height;
+  this.params.cvsDimXY.width = canvas.width;
+  this.params.cvsDimXY.height = canvas.height;
+  //Currently hardcoding the assumption that the canvas is at 0,0 of the window, but trying to make
+  //sure my *other* calculations don't make the same assumption
+  this.params.cvsOffsetXY.x = 0;
+  this.params.cvsOffsetXY.y = 0;
+  
+  console.log("Canvas dimensions" + this.params.cvsDimXY);
 
   //Currently selected dot.  x/y -1 if none selected
   this.currentDot = (function() {
-    var x = -1;
-    var y = -1;
+    var dot = {x:-1,y:-1};
 
     return {
-      getX: function() {return x;},
-      getY: function() {return y;},
-      isSet: function() {return x>=0;},
-      clear: function() {x=-1; y=-1},
-      setXY: function(x1,y1) {x = x1; y = y1;},
-      toString: function() {return "X: " + x + ", Y: " + y;}
+      getX: function() {return dot.x;},
+      getY: function() {return dot.y;},
+      isSet: function() {return dot.x>=0;},
+      clear: function() {dot.x=-1; dot.y=-1},
+      setXY: function(x1,y1) {dot.x = x1; dot.y = y1;},
+      setDot: function(foo) {dot.x = foo.x; dot.y = foo.y;},
+      getDot: function() {return dot;},
+      toString: function() {return "Dot coords.  X: " + dot.x + ", Y: " + dot.y;}
     }
   }());
   
+  /**
+   * Holds 2 dots.  A "dot" is an object with {x,y}
+   */
   this.lastLine = (function() {
     var emptyObj = {};
     var d1 = emptyObj;
@@ -58,13 +112,39 @@ EG5.Game.prototype = {
 
   canvasClicked: function(e) {
     console.log("canvasClicked " + e.pageX + " " + e.pageY);
-    this.handleTap(e.pageX, e.pageY);
+    this.handleTapOnBoard(e.pageX, e.pageY);
   },
 
-  handleTap: function(x,y) {
+  handleTapOnBoard: function(x,y) {
+  
+    /*
+    Odd bug with how I did things is that someone can click to the right outside
+    the board, or below the last row.  It'll then try to draw a line to no-where.  
+    x-late the clicked point to the x/y of the last row/column then let the rest
+    of existing logic take over.
+    */
+    if(
+      (x<this.params.boardTLXY.x) ||
+      (x>this.params.boardBRXY.x) ||
+      (y<this.params.boardTLXY.y) ||
+      (y>this.params.boardBRXY.y) ) {
+      //Not on the "board".  Return
+      return;
+    }
+ 
+  
+    /*
+      There are a bunch of edge cases to handle.  The bottom left dot has no incoming vectors, and only
+      one outgoing.  The left column has no incomming horozontal vectors, etc.  The thing I forgot first time was in the checking
+      of bounds for the bottom and right-most columns.
+    */
+    var dotRowCount = this.horLines[0][0].length;
+    var dotColCount = this.horLines[0].length;
+  
     var dotCoord = this.xyToDot(x,y);
     console.log("In dots: " + dotCoord.x + ", " + dotCoord.y);
     var dotCenter = this.dotToXY(dotCoord.x, dotCoord.y);
+    
     if(this.currentDot.isSet()) {
       //Check for clicking on same dot or one not adjacent (unset)
       var xDiff = Math.abs(this.currentDot.getX()-dotCoord.x);
@@ -80,8 +160,15 @@ EG5.Game.prototype = {
         this.currentDot.clear();
         return;
       }
+      
+      //***TODO*** Make sure there isn't already a line in that spot.  It could be a legal dot 
+      //to click (the first one), but not the second.
+      
       //Yippie!! We have a line to draw
-      this.drawLine({x: this.currentDot.getX(), y:this.currentDot.getY()}, dotCoord, this.params.dotInnerColor);
+      this.drawLine(
+        this.currentDot.getDot(),
+        dotCoord, 
+        this.params.dotInnerColor);
       var oldDotCenter = this.dotToXY(this.currentDot.getX(), this.currentDot.getY());
       this.drawDot(oldDotCenter.x, oldDotCenter.y, this.params.dotInnerColor, this.params.dotOuterColor);
       this.currentDot.clear();
@@ -89,18 +176,31 @@ EG5.Game.prototype = {
     else {
       //Make sure there are possible connections to this dot still available
       var canHighlight = false;
-      //Check horizontal, rtl first
+      
+      //Check horizontal
+      //rtl first.  If it isn't the first column, check if there is an 
+      //inbound vector
       if((dotCoord.x > 0) && !this.horLines[dotCoord.x-1][dotCoord.y]) {
         canHighlight = true;
       }
-      if((dotCoord.y < this.horLines.length) && !this.horLines[dotCoord.x][dotCoord.y]) {
+      //Check if the current point has an outbound vector, unless it is the 
+      //last column
+      if(
+        (dotCoord.x != (dotColCount-1)) && //Check if not the last column
+        (!this.horLines[dotCoord.x][dotCoord.y])) {
         canHighlight = true;
       }
-      //Check vertical ttb first
-      if((dotCoord.y > 0) && !this.verLines[dotCoord.x][dotCoord.y-1]) {
+      //Check vertical
+      //ttb first.  Top has no inbound
+      if(
+        (dotCoord.y > 0) && !this.verLines[dotCoord.x][dotCoord.y-1]) {
         canHighlight = true;
       }
-      if((dotCoord.y > this.verLines[0].length) && !this.verLines[dotCoord.x][dotCoord.y]) {
+      //Outbound (down).  The last row cannot have this.
+      if(
+        (dotCoord.y != (dotRowCount-1)) && 
+        (!this.verLines[dotCoord.x][dotCoord.y])
+        ) {
         canHighlight = true;
       }
       if(canHighlight) {
@@ -124,11 +224,15 @@ EG5.Game.prototype = {
     var params = this.params;
 
     //Calculate the # of horizontal and vertical dots
-    var numHorDots = Math.floor((params.cvsWidth-params.halfDotSep)/params.dotSep);
-    var numVerDots = Math.floor((params.cvsHeight-params.halfDotSep)/params.dotSep);
+    var numHorDots = Math.floor((params.cvsDimXY.width-params.halfDotSep)/params.dotSep);
+    var numVerDots = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
+    
+    this.params.numHorDots = numHorDots;
+    this.params.numVerDots = numVerDots;
 
-    var loX = Math.floor((params.cvsWidth-params.halfDotSep)%params.dotSep);
-    var loY = Math.floor((params.cvsHeight-params.halfDotSep)/params.dotSep);
+
+    var loX = Math.floor((params.cvsDimXY.width-params.halfDotSep)%params.dotSep);
+    var loY = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
     var smallest = loX>loY?loY:loX;
     if(smallest > numHorDots) {
       var xtra = Math.floor(smallest/numHorDots);
@@ -136,12 +240,19 @@ EG5.Game.prototype = {
       params.dotSep+=xtra;
       params.halfDotSep = Math.floor(params.dotSep/2)
     }
+    
+    //Record the boundary of the board
+    this.params.boardTLXY = new EG5.Point(1,1);
+    this.params.boardBRXY = new EG5.Point(((numHorDots*params.dotSep))-1, ((numVerDots*params.dotSep))-1);
+    
+    console.log("Board TL: " + this.params.boardTLXY);
+    console.log("Board BR: " + this.params.boardBRXY);
 
     console.log("Game " + numHorDots + "x" + numVerDots + ", Leftover: " + loX + "x" + loY);
 
     //Create data structures
-    this.horLines = this.createArrays(numHorDots-1, numVerDots-1, false);
-    this.verLines = this.createArrays(numHorDots-1, numVerDots-1, false);
+    this.horLines = this.createArrays(numHorDots, numVerDots, false);
+    this.verLines = this.createArrays(numHorDots, numVerDots, false);
 
 
     var xLoc = params.halfDotSep;
@@ -169,37 +280,47 @@ EG5.Game.prototype = {
     return ret;
   },
 
+  /**
+   * Returns the nearest dot to the x.y coordinate, in the "dot" coordinate system.
+   */
   xyToDot: function(x,y) {
+    var point;
+    if(arguments.length == 2) {
+      point = {x: arguments[0], y: arguments[1]};
+    }
+    else {
+      point = arguments[0];
+    }  
     var params = this.params;
-    x-=params.halfDotSep;
-    y-=params.halfDotSep;
-    x-=params.cvsOffsetX;
-    y-=params.cvxOffsetY;
+    point.x-=params.halfDotSep;
+    point.y-=params.halfDotSep;
+    point.x-=params.cvsOffsetXY.x;
+    point.y-=params.cvsOffsetXY.y;
 
-    xDot = Math.round(x/params.dotSep);
-    yDot = Math.round(y/params.dotSep);
+    xDot = Math.round(point.x/params.dotSep);
+    yDot = Math.round(point.y/params.dotSep);
 
-    return {
-      x: xDot,
-      y: yDot
-    };
+    return new EG5.Point(xDot, yDot);
   },
-  dotToXY: function(dotX,dotY) {
-    x = this.params.halfDotSep + (dotX*this.params.dotSep);
-    y = this.params.halfDotSep + (dotY*this.params.dotSep);
-
-    return {
-      x: x,
-      y: y,
-      toString: function() {
-        return "X: " + x + ", Y: " + y;
-      }
-    };
+  
+  /**
+   * Returns the center of a dot in canvas coordinates (not currently absolute, of the canvas isn't at 0,0 of the browser).
+   * Can accept x,y or a point
+   */
+  dotToXY: function() {
+    var point;
+    if(arguments.length == 2) {
+      point = {x: arguments[0], y: arguments[1]};
+    }
+    else {
+      point = arguments[0];
+    }
+    return new EG5.Point(this.params.halfDotSep + (point.x*this.params.dotSep), this.params.halfDotSep + (point.y*this.params.dotSep));
   },
 
   drawDot: function(x,y, ic, oc) {
 //    if(true) {return;}
-    console.log("Draw dot: " + x + ", " + y + ", IC: " + ic);
+//    console.log("Draw dot: " + x + ", " + y + ", IC: " + ic);
     var ctx = this.ctx;
     ctx.beginPath();
     ctx.arc(x, y, this.params.dotRadius, 2*Math.PI, false);
@@ -241,8 +362,6 @@ EG5.Game.prototype = {
     }
     else {
       //Horizontal
-//      console.log("First point: " + xy1.x + "," + xy1.y);
-//      console.log("Second point: " + xy2.x + "," + xy2.y);      
       ctx.arc(xy1.x, xy1.y, halfLineWidth, 1.5*Math.PI, 0.5*Math.PI, false);
       ctx.lineTo(xy2.x, xy2.y+halfLineWidth);
       ctx.arc(xy2.x, xy2.y, halfLineWidth, 0.5*Math.PI, 1.5*Math.PI, false);
