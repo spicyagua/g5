@@ -6,6 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"> -->
   <link rel="stylesheet" type="text/css" href="css/normalize.css">
+  <link rel="stylesheet" type="text/css" href="css/jquery.mobile.custom.structure.min.css">
+  <link rel="stylesheet" type="text/css" href="css/jquery.mobile.custom.theme.min.css">
+  <script type="text/javascript" src="js/jquery-1.11.1.min.js"></script>   
+<!-- <script type="text/javascript">$(document).bind("mobileinit", function(){$.extend(  $.mobile , {autoInitializePage: false})});</script>  -->
+  <script type="text/javascript" src="js/jquery.mobile.custom.min.js"></script>
+ 
+
+  
 
   <style>
 
@@ -19,18 +27,23 @@
 
 </head>
 <body>
-
-  <div id="wholeContent">
-    <canvas id="myCanvas" width="300" height="300"></canvas>
-<!--    <div id="optionsBar"></div> -->
+  <div data-role="page">
+    <div id="wholeContent">
+      <canvas id="myCanvas" width="300" height="300"></canvas>
+      <div data-role="footer" id="optionsBar"><input id="testButton" type="button">click me</input></div>
+  <!--    <div id="optionsBar"><button type="button">click me</button></div>    -->
+    </div>
   </div>
   <script src="http://code.jquery.com/jquery.min.js"></script>
 
 
   <script>
+  
     $(document).ready(function() {
+//      $('*').attr('data-role', 'none');
       document.documentElement.style.overflow = 'hidden';  // firefox, chrome
       document.body.scroll = "no"; // ie only
+//      $("#testButton").button();
       toFullsize();
     });
 
@@ -40,7 +53,7 @@
       var wholeContent = $("#wholeContent")[0];
 
       winWidth = window.innerWidth;
-      winHeight = window.innerHeight;
+      winHeight = Math.round(window.innerHeight*0.9);
 
 //      wholeContent.style.width=winWidth;
 //      wholeContent.style.height=winHeight;

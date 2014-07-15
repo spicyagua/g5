@@ -9,9 +9,9 @@ EG5.Point = function(x,y) {
 };
 
 EG5.Point.prototype = {
-  isSet: function() {return this.x>=0;},
-  clear: function() {this.x=-1},
-  setXY: function(x1,y1) {this.x = x1; this.y = y1;},
+//  isSet: function() {return this.x>=0;},
+//  clear: function() {this.x=-1},
+//  setXY: function(x1,y1) {this.x = x1; this.y = y1;},
   assignFrom: function(foo) {this.x = foo.x; this.y = foo.y;},
   toString: function() {return "X: " + this.x + ", Y: " + this.y;}
 };
@@ -131,7 +131,7 @@ EG5.Game.prototype = {
       of bounds for the bottom and right-most columns.
     */
     var newDotCoordDot = this.xyToDot(x,y);
-    var newDotCenterXY = this.dotToXY(newDotCoordDot.x, newDotCoordDot.y);
+    var newDotCenterXY = this.dotToXY(newDotCoordDot);
 
     if(this.currentDot) {
 
@@ -175,7 +175,7 @@ EG5.Game.prototype = {
           for(var i = 0; i<newBoxes.length; i++) {
             console.log("Draw and record box: " + newBoxes[i]);
             this.boxes[newBoxes[i].x][newBoxes[i].y] = true;//Do I need this for anything?  TODO I don't think I need this structure.
-            this.drawBox(newBoxes[i], (this.player1Current?p.p1Color:p.p2Color));
+            this.drawBox(newBoxes[i], this.getCurrentPlayerColor());
           }
         }
         else {
@@ -230,6 +230,10 @@ EG5.Game.prototype = {
 
 
   },
+  
+  getCurrentPlayerColor: function() {
+    return this.player1Current?this.params.p1Color:this.params.p2Color
+  },
 
   switchPlayers: function() {
     this.player1Current = !this.player1Current;
@@ -237,6 +241,7 @@ EG5.Game.prototype = {
 
   beginGame: function() {
     this.createGameboard();
+    //TODO This is temp until I figure the real cross-device way to capture the user gestures
     jQuery("#myCanvas").click(this.canvasClicked.bind(this));
   },
 
@@ -273,14 +278,20 @@ EG5.Game.prototype = {
     //Create data structures
     this.horLines = this.createArrays(numHorDots, numVerDots, false);
     this.verLines = this.createArrays(numHorDots, numVerDots, false);
-    this.boxes = this.createArrays(numHorDots-1, numVerDots-1, false);
+    this.boxes = this.createArrays(numHorDots-1, numVerDots-1, false);//TODO: I never use this.  Kill it?
+    //Seems faster if I precompute the XY centers for every Dot.  I had a function to xlate this but
+    //I seemed to call it a lot.  thought about attaching "XY" and "DOT" coords to point, but this seemed
+    //more realsonable.  I know none of this matters given the magnitude of the board - just trying to stretch
+    //my thinking.
+    this.dotCentersXY = this.createArrays(numHorDots, numVerDots, 0);
 
 
     var xLoc = params.halfDotSep;
     for(var i = 0; i<numHorDots; i++) {
       var yLoc = params.halfDotSep;
       for(var j = 0; j<numVerDots; j++) {
-        this.drawDot({x:xLoc, y:yLoc}, params.dotInnerColor, params.dotOuterColor);
+        this.dotCentersXY[i][j] = new EG5.Point(xLoc, yLoc);      
+        this.drawDot(this.dotCentersXY[i][j], params.dotInnerColor, params.dotOuterColor);
         yLoc+=params.dotSep;
       }
       xLoc+=params.dotSep;
@@ -373,7 +384,7 @@ EG5.Game.prototype = {
     for(var i = 0; i<x; i++) {
       ret[i] = [];
       for(var j = 0; j<y; j++) {
-        ret[i][j] = 0
+        ret[i][j] = val;
       }
     }
     return ret;
@@ -406,7 +417,8 @@ EG5.Game.prototype = {
    * Returns the center of a dot in canvas coordinates (not currently absolute, of the canvas isn't at 0,0 of the browser).
    * Can accept x,y or a point
    */
-  dotToXY: function() {
+/*   
+  dotToXY_DEPRICATED: function() {
     var point;
     if(arguments.length == 2) {
       point = {x: arguments[0], y: arguments[1]};
@@ -415,6 +427,10 @@ EG5.Game.prototype = {
       point = arguments[0];
     }
     return new EG5.Point(this.params.halfDotSep + (point.x*this.params.dotSep), this.params.halfDotSep + (point.y*this.params.dotSep));
+  },
+*/  
+  dotToXY: function(d) {
+    return this.dotCentersXY[d.x][d.y];
   },
 
   drawDot: function(d, ic, oc) {
@@ -436,6 +452,7 @@ EG5.Game.prototype = {
   drawBox: function(p, color) {
     console.log("Draw box");
     var tlXY = this.dotToXY(p);
+    //Yea - I was debugging...TODO - Bill - remove this polution
     var ctx = this.ctx;
     var sides = Math.round(0.7071*this.params.dotRadius);
     var x = tlXY.x+sides;
@@ -443,6 +460,7 @@ EG5.Game.prototype = {
     var w = this.params.dotSep-(2*sides);
     var h = this.params.dotSep-(2*sides);
     ctx.beginPath();
+    //TODO: Shadow?!?  Cool effect.   Check it out.
 //    ctx.shadowBlur = 15;
 //    ctx.shadowColor = this.params.dotOuterColor;
     ctx.fillStyle = color;
@@ -464,8 +482,8 @@ EG5.Game.prototype = {
 //    console.log("Dot1: " + d1.x + "," + d1.y);
 //    console.log("Dot2: " + d2.x + "," + d2.y);
 
-    xy1 = this.dotToXY(d1.x, d1.y);
-    xy2 = this.dotToXY(d2.x, d2.y);
+    xy1 = this.dotToXY(d1);
+    xy2 = this.dotToXY(d2);
 
     var ctx = this.ctx;
     var halfLineWidth = this.params.dotRadius;
