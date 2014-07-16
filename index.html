@@ -4,17 +4,35 @@
   <meta charset="utf-8">
   <title>Foo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/jquery.mobile-1.4.3.min.css" />
+
+<!--  <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"> -->
   <style>
-
-    * {margin:0; padding:0;}
-
-    html, body {
-      width:100%; height:100%;
+    body {
+    margin:0px;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+        /* prevent text selection on ui */
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        /* prevent scrolling in windows phone */
+        -ms-touch-action: none;
+    }
+    #content {
+          overflow:hidden;
+      background-color:#ddd;
+    }
+    #canvas{
+    cursor:crosshair ;
+        background-color:#fff;
     }
 
   </style>
   <script src="js/jquery-1.11.1.min.js"></script>
+  <script src="js/jquery.mobile-1.4.3.min.js"></script>
   <script src="js/main.js"></script>
   <script>
     $(document).ready(function() {
@@ -24,103 +42,37 @@
 </head>
 <body>
 
-  <div id="wholeContent">
-    <canvas id="myCanvas" width="300" height="300"></canvas>
-<!--    <div id="optionsBar"></div> -->
-  </div>
-  <script src="http://code.jquery.com/jquery.min.js"></script>
+<body>
+<div data-role="page" id="page1">
+    <div id="content"><canvas id="myCanvas" width="300" height="300"></canvas></div>
+    <div data-theme="a" data-role="footer" data-position="fixed">
 
+    <a href="#" class="ui-btn-left ui-btn ui-btn-inline ui-btn-icon-notext ui-corner-all ui-mini ui-icon-gear"></a>
+<h3 style="color: red">Player 1's Turn</h3>
+    <a href="#" class="ui-btn-right ui-btn ui-btn-inline ui-btn-icon-notext ui-corner-all ui-mini ui-icon-refresh"></a>
+    </div>
 
-  <script>
-    $(document).ready(function() {
-//      document.documentElement.style.overflow = 'hidden';  // firefox, chrome
-//      document.body.scroll = "no"; // ie only
-//      toFullsize();
-    });
+    <div data-role="popup" id="popupDialog" data-dismissable="false" data-overlay-theme="a" data-theme="a" class="ui-corner-all"><!-- style="max-width:400px;" -->
+      <div role="main" class="ui-corner-bottom ui-content">
+      <form method="post" action="#">
+        <fieldset class="ui-field-contain">
+          <label for="team1_name">Team 1:</label>
+          <input type="text" name="fname" id="team1_name" placeholder="Team 1">
+          <label for="team2_name">Team 2:</label>
+          <input type="text" name="fname" id="team2_name" placeholder="Team 2">
+          <label for="category">Select Categories</label>
+          <select name="category" multiple id="category" data-native-menu="false">
+          </select>
+          <label for="num_rounds">Rounds per Game</label>
+          <input type="range" name="num_rounds" id="num_rounds" value="5" min="1" max="20" data-popup-enabled="true" data-hightlight="true">
+          <label for="round_duration">Round Duration (min)</label>
+          <input type="range" name="round_duration" id="round_duration" value="2" min="1" max="20" data-popup-enabled="true" data-hightlight="true">
+        </fieldset>
+      </form>
+      </div>
+    </div>
 
-    function toFullsize() {
+</div>
 
-      console.log("Ready invoked");
-      var wholeContent = $("#wholeContent")[0];
-
-      winWidth = window.innerWidth;
-      winHeight = window.innerHeight;
-
-//      wholeContent.style.width=winWidth;
-//      wholeContent.style.height=winHeight;
-
-//      wholeContent.style.marginTop = 0 + "px";
-//      wholeContent.style.marginLeft = 0 + "px";
-
-      var canvas = $("#myCanvas")[0];
-      canvas.width = winWidth;
-      canvas.height = winHeight;
-
-      console.log("Canvas height: " + canvas.height);
-      console.log("Canvas width: " + canvas.width);
-      console.log("Canvas x: " + canvas.x);
-      console.log("Canvas y: " + canvas.y);
-
-      drawNow();
-
-    }
-
-    function drawNow() {
-      console.log("drawNow invoked");
-      var canvas = $("#myCanvas")[0];
-      var ctx = canvas.getContext("2d");
-
-      ctx.fillStyle = "rgb(0,0,0)";
-      ctx.fillRect(0,0,canvas.width, canvas.height);
-/*
-      ctx.fillStyle = "rgba(0,0,200, 0.5)";
-      ctx.fillRect(20, 20, canvas.width, canvas.height);
-*/
-
-
-      ctx.font = 'italic 40pt Calibri';
-      ctx.fillStyle = "white"
-      ctx.fillText(canvas.width + "x" + canvas.height, 150, 100);
-
-
-      drawCircle(200, 200);
-      drawCircle(500, 200);
-
-
-      ctx.beginPath();
-      ctx.strokeStyle = "white"
-      ctx.moveTo(0,0);
-      ctx.lineTo(canvas.width, canvas.height);
-      ctx.moveTo(canvas.width, 0);
-      ctx.lineTo(0,canvas.height);
-      ctx.stroke();
-
-
-//      ctx.save();
-      ctx.beginPath();
-      ctx.arc(200, 200, 50, 1.5*Math.PI, 0.5*Math.PI, false);
-      ctx.lineTo(500, 250);
-      ctx.arc(500, 200, 50, 0.5*Math.PI, 1.5*Math.PI, false);
-      ctx.lineTo(200, 150);
-      ctx.closePath();
-      ctx.fillStyle = "rgba(255,255, 255, 1)";
-      ctx.fill();
-
-//      ctx.restore();
-
-    }
-
-    function drawCircle(x, y) {
-      var canvas = $("#myCanvas")[0];
-      var ctx = canvas.getContext("2d");
-      ctx.beginPath();
-      ctx.arc(x, y, 50, 2*Math.PI, false);
-      var gradient = ctx.createRadialGradient(x, y, 30, x, y, 50);
-      gradient.addColorStop(0, "rgba(255,255, 255, 1)");
-      gradient.addColorStop(1, "rgba(220, 220, 220, 1)");
-      ctx.fillStyle = gradient;
-      ctx.fill();
-    }
-  </script>
 </body>
 </html>

@@ -81,14 +81,6 @@ EG5.Game = function(canvas) {
   this.canvas = canvas;
   this.ctx = canvas.getContext("2d");
   this.params.halfDotSep = Math.floor(this.params.dotSep/2);
-  this.params.cvsDimXY.width = canvas.width;
-  this.params.cvsDimXY.height = canvas.height;
-  //Currently hardcoding the assumption that the canvas is at 0,0 of the window, but trying to make
-  //sure my *other* calculations don't make the same assumption
-  this.params.cvsOffsetXY.x = 0;
-  this.params.cvsOffsetXY.y = 0;
-
-  console.log("Canvas dimensions" + this.params.cvsDimXY);
 
   this.player1Count = 0;
   this.player2Count = 0;
@@ -230,7 +222,7 @@ EG5.Game.prototype = {
 
 
   },
-  
+
   getCurrentPlayerColor: function() {
     return this.player1Current?this.params.p1Color:this.params.p2Color
   },
@@ -240,9 +232,34 @@ EG5.Game.prototype = {
   },
 
   beginGame: function() {
+    this.sizeCanvas();
     this.createGameboard();
     //TODO This is temp until I figure the real cross-device way to capture the user gestures
     jQuery("#myCanvas").click(this.canvasClicked.bind(this));
+  },
+
+  sizeCanvas: function() {
+    var canvas = this.canvas;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight-45;
+
+    console.log("Canvas height: " + canvas.height);
+    console.log("Canvas width: " + canvas.width);
+
+    var ctx = this.ctx;
+    ctx.fillStyle = "rgb(32,32,32)";
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+
+    this.params.cvsDimXY.width = canvas.width;
+    this.params.cvsDimXY.height = canvas.height;
+    //Currently hardcoding the assumption that the canvas is at 0,0 of the window, but trying to make
+    //sure my *other* calculations don't make the same assumption
+    this.params.cvsOffsetXY.x = 0;
+    this.params.cvsOffsetXY.y = 0;
+
+    console.log("Canvas dimensions" + this.params.cvsDimXY);
+
+
   },
 
   createGameboard: function() {
@@ -290,7 +307,7 @@ EG5.Game.prototype = {
     for(var i = 0; i<numHorDots; i++) {
       var yLoc = params.halfDotSep;
       for(var j = 0; j<numVerDots; j++) {
-        this.dotCentersXY[i][j] = new EG5.Point(xLoc, yLoc);      
+        this.dotCentersXY[i][j] = new EG5.Point(xLoc, yLoc);
         this.drawDot(this.dotCentersXY[i][j], params.dotInnerColor, params.dotOuterColor);
         yLoc+=params.dotSep;
       }
@@ -417,7 +434,7 @@ EG5.Game.prototype = {
    * Returns the center of a dot in canvas coordinates (not currently absolute, of the canvas isn't at 0,0 of the browser).
    * Can accept x,y or a point
    */
-/*   
+/*
   dotToXY_DEPRICATED: function() {
     var point;
     if(arguments.length == 2) {
@@ -428,7 +445,7 @@ EG5.Game.prototype = {
     }
     return new EG5.Point(this.params.halfDotSep + (point.x*this.params.dotSep), this.params.halfDotSep + (point.y*this.params.dotSep));
   },
-*/  
+*/
   dotToXY: function(d) {
     return this.dotCentersXY[d.x][d.y];
   },
@@ -516,21 +533,14 @@ EG5.Game.prototype = {
 EG5.app = (function() {
   var _init = function() {
 
+//    $("#myCanvas").height($(window).height()-45);
+//    var canvas = '<canvas id="canvas" width="'+$(window).width()+'" height="'+($(window).height()-45)+'"></canvas>';
+
     //Damm voodo for browsers
     document.documentElement.style.overflow = 'hidden';
     document.body.scroll = "no";
-    var wholeContent = $("#wholeContent")[0];
+//    var wholeContent = $("#wholeContent")[0];
 
-    var canvas = $("#myCanvas")[0];
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    console.log("Canvas height: " + canvas.height);
-    console.log("Canvas width: " + canvas.width);
-
-    var ctx = canvas.getContext("2d");
-    ctx.fillStyle = "rgb(32,32,32)";
-    ctx.fillRect(0,0,canvas.width, canvas.height);
 /*
     //Debug
     ctx.beginPath();
@@ -541,7 +551,7 @@ EG5.app = (function() {
     ctx.lineTo(0,canvas.height);
     ctx.stroke();
 */
-    var game = new EG5.Game(canvas);
+    var game = new EG5.Game($("#myCanvas")[0]);
     game.beginGame();
 
 
