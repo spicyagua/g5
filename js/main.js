@@ -75,7 +75,9 @@ EG5.Game = function(canvas) {
     boardTLXY: 0,
     boardBRXY:0,
     p1Color: "#7ebce6",
-    p2Color: "#ba3140"
+    p2Color: "#ba3140",
+    p1Name: "Player 1",
+    p2Name: "Player 2"
 
   };
   this.canvas = canvas;
@@ -90,6 +92,15 @@ EG5.Game = function(canvas) {
 };
 
 EG5.Game.prototype = {
+
+  /**
+   * Call to update parameters based on passed-in values.
+   */
+  updateParams: function(newParams) {
+    //TODO persist names into cookie
+    jQuery.extend(this.params, newParams);
+    this.paintCurrentPlayerName();
+  },
 
   canvasClicked: function(e) {
     console.log("canvasClicked " + e.pageX + " " + e.pageY);
@@ -228,14 +239,29 @@ EG5.Game.prototype = {
   },
 
   switchPlayers: function() {
+    console.log("Switch players");
     this.player1Current = !this.player1Current;
+    this.paintCurrentPlayerName();
+  },
+
+  paintCurrentPlayerName: function() {
+    this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name, this.getCurrentPlayerColor());
   },
 
   beginGame: function() {
+    if(this.currentDot) {
+      delete this.currentDot
+    }
+    this.player1Count = 0;
+    this.player2Count = 0;
+    this.player1Current = true;
+
     this.sizeCanvas();
     this.createGameboard();
+    this.paintCurrentPlayerName();
     //TODO This is temp until I figure the real cross-device way to capture the user gestures
-    jQuery("#myCanvas").click(this.canvasClicked.bind(this));
+    jQuery("#myCanvas").off("click", this.canvasClicked.bind(this));
+    jQuery("#myCanvas").on("click", this.canvasClicked.bind(this));
   },
 
   sizeCanvas: function() {
@@ -530,6 +556,77 @@ EG5.Game.prototype = {
 
 };
 
+EG5.UI = function() {
+};
+
+EG5.UI.prototype = {
+
+  init: function(game) {
+    this.game = game;
+
+    $("#settingsButton").on("click", this.openSettingsClicked.bind(this));
+    $("#restartButton").on("click", this.restartGameClicked.bind(this));
+
+    $("#saveSettingsButton").on("click", this.saveSettingsClicked.bind(this));
+    $("#cancelSettingsButton").on("click", this.saveSettingsClicked.bind(this));
+
+    $("#confirmRestartButton").on("click", this.confirmRestart.bind(this));
+    $("#cancelRestartButton").on("click", this.cancelRestart.bind(this));
+
+
+
+  },
+
+  restartGameClicked: function() {
+    console.log("Restart clicked");
+    jQuery("#restartConfirmDialog").popup("open");
+  },
+
+  confirmRestart: function() {
+    this.game.beginGame();
+    jQuery("#restartConfirmDialog").popup("close");
+  },
+  cancelRestart: function() {
+    jQuery("#restartConfirmDialog").popup("close");
+  },
+
+  openSettingsClicked: function() {
+    console.log("Settings clicked");
+    jQuery("#player1Name").val(this.game.params.p1Name);
+    jQuery("#player2Name").val(this.game.params.p2Name);
+     $("#settingsDialog").popup("open");
+  },
+
+  paintCurrentPlayer: function(name, color) {
+    //The hackery below is because the life of me I could not get
+    //the text to change with a simple ".text" call in jQuery.  Didn't
+    //find anything useful in the JQM docs/stackoverflow
+    console.log("Updating display for player: " + name);
+    var theElement = jQuery("#currentPlayerLabel");
+    var theParent = theElement.parent();
+    jQuery("#currentPlayerLabel").text(name);
+    jQuery("#currentPlayerLabel").replaceWith("<span style=\"color: " + color + "\" id=\"currentPlayerLabel\">"
+      + name +"'s turn</span>");
+
+  },
+
+  saveSettingsClicked: function() {
+    console.log("Save settings selected");
+    $("#settingsDialog").popup("close");
+    this.game.updateParams.call(this.game,
+    {
+      p1Name: jQuery("#player1Name").val(),
+      p2Name: jQuery("#player2Name").val()
+    });
+  },
+  cancelSettingsClicked: function() {
+    console.log("Cancel settings selected");
+    $("#settingsDialog").popup("close");
+  }
+
+
+};
+
 EG5.app = (function() {
   var _init = function() {
 
@@ -539,6 +636,8 @@ EG5.app = (function() {
     //Damm voodo for browsers
     document.documentElement.style.overflow = 'hidden';
     document.body.scroll = "no";
+    $("[data-role=footer]").toolbar({ tapToggle: false });
+
 //    var wholeContent = $("#wholeContent")[0];
 
 /*
@@ -551,7 +650,13 @@ EG5.app = (function() {
     ctx.lineTo(0,canvas.height);
     ctx.stroke();
 */
+
+
+
     var game = new EG5.Game($("#myCanvas")[0]);
+    var controller = new EG5.UI();
+    controller.init(game);
+    game.ui = controller;
     game.beginGame();
 
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Foo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0" />
   <link rel="stylesheet" href="css/jquery.mobile-1.4.3.min.css" />
 
 <!--  <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"> -->
@@ -22,7 +22,7 @@
         -ms-touch-action: none;
     }
     #content {
-          overflow:hidden;
+      overflow:hidden;
       background-color:#ddd;
     }
     #canvas{
@@ -44,33 +44,37 @@
 
 <body>
 <div data-role="page" id="page1">
-    <div id="content"><canvas id="myCanvas" width="300" height="300"></canvas></div>
+    <div id="content" style="overflow:hidden"><canvas style="overflow:hidden" id="myCanvas" width="300" height="300"></canvas></div>
     <div data-theme="a" data-role="footer" data-position="fixed">
 
-    <a href="#" class="ui-btn-left ui-btn ui-btn-inline ui-btn-icon-notext ui-corner-all ui-mini ui-icon-gear"></a>
-<h3 style="color: red">Player 1's Turn</h3>
-    <a href="#" class="ui-btn-right ui-btn ui-btn-inline ui-btn-icon-notext ui-corner-all ui-mini ui-icon-refresh"></a>
+    <a href="#" id="settingsButton" class="ui-btn-left ui-btn ui-btn-inline ui-btn-icon-notext ui-corner-all ui-mini ui-icon-gear"></a>
+      <h1><span id="currentPlayerLabel"></span></h1>
+    <a href="#" id="restartButton" class="ui-btn-right ui-btn ui-btn-inline ui-btn-icon-notext ui-corner-all ui-mini ui-icon-refresh"></a>
     </div>
 
-    <div data-role="popup" id="popupDialog" data-dismissable="false" data-overlay-theme="a" data-theme="a" class="ui-corner-all"><!-- style="max-width:400px;" -->
+    <div data-role="popup" id="settingsDialog" data-dismissable="false" data-overlay-theme="a" data-theme="a" class="ui-corner-all"><!-- style="max-width:400px;" -->
       <div role="main" class="ui-corner-bottom ui-content">
       <form method="post" action="#">
         <fieldset class="ui-field-contain">
-          <label for="team1_name">Team 1:</label>
-          <input type="text" name="fname" id="team1_name" placeholder="Team 1">
-          <label for="team2_name">Team 2:</label>
-          <input type="text" name="fname" id="team2_name" placeholder="Team 2">
-          <label for="category">Select Categories</label>
-          <select name="category" multiple id="category" data-native-menu="false">
-          </select>
-          <label for="num_rounds">Rounds per Game</label>
-          <input type="range" name="num_rounds" id="num_rounds" value="5" min="1" max="20" data-popup-enabled="true" data-hightlight="true">
-          <label for="round_duration">Round Duration (min)</label>
-          <input type="range" name="round_duration" id="round_duration" value="2" min="1" max="20" data-popup-enabled="true" data-hightlight="true">
+          <label for="team1_name">Player 1:</label>
+          <input type="text" name="fname" id="player1Name" placeholder="Player 1">
+          <label for="team2_name">Player 2:</label>
+          <input type="text" name="fname" id="player2Name" placeholder="Player 2">
         </fieldset>
       </form>
+      <button id="saveSettingsButton" class="ui-btn ui-btn-inline ui-icon-check ui-btn-icon-right">Save</button>
+      <button id="cancelSettingsButton" class="ui-btn ui-btn-inline ui-icon-delete ui-btn-icon-right">Cancel</button>
       </div>
     </div>
+
+    <div data-role="popup" id="restartConfirmDialog" data-dismissable="false" data-overlay-theme="a" data-theme="a" class="ui-corner-all"><!-- style="max-width:400px;" -->
+      <div role="main" class="ui-corner-bottom ui-content">
+      <p>Are you sure you want to restart?</p>
+      <button id="confirmRestartButton" class="ui-btn ui-btn-inline ui-icon-check ui-btn-icon-right">Yep</button>
+      <button id="cancelRestartButton" class="ui-btn ui-btn-inline ui-icon-delete ui-btn-icon-right">Nope</button>
+      </div>
+    </div>
+
 
 </div>
 
