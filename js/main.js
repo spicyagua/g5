@@ -1,7 +1,8 @@
-//TODO a "bar" across the bottom with a box with the color w/ a number by/in it (current score).  Some arrow or other indicator of who is "up"
-//Such a bar may also have a "quit" button and launch to something like an options page.
-
 var EG5 = EG5 || {};
+
+//=================================================
+//            Point
+//=================================================
 
 EG5.Point = function(x,y) {
   this.x = x;
@@ -9,12 +10,14 @@ EG5.Point = function(x,y) {
 };
 
 EG5.Point.prototype = {
-//  isSet: function() {return this.x>=0;},
-//  clear: function() {this.x=-1},
-//  setXY: function(x1,y1) {this.x = x1; this.y = y1;},
   assignFrom: function(foo) {this.x = foo.x; this.y = foo.y;},
   toString: function() {return "X: " + this.x + ", Y: " + this.y;}
 };
+
+
+//=================================================
+//            Dimmension
+//=================================================
 
 //I know this is my Java background creeping in and I recognize that
 //this has the same effective use as the "point", but I prefer to refer to
@@ -27,6 +30,11 @@ EG5.Dimension = function(width, height) {
 EG5.Dimension.prototype = {
   toString: function() {return "Width: " + this.width + ", Height: " + this.height;}
 };
+
+
+//=================================================
+//            Line
+//=================================================
 
 /**
  * When drawing lines, they area always drawn from the canvas origin as the starting point.
@@ -55,10 +63,16 @@ EG5.Line = function(p1, p2) {
   this.p1 = p1;
   this.p2 = p2;
 };
+
 EG5.Line.prototype = {
   toString: function() {return (this.horizontal?"Horizontal":"Vertical") + " line from " + this.p1 + " to " + this.p2;}
 };
 
+
+
+//=================================================
+//            Game
+//=================================================
 
 EG5.Game = function(canvas) {
 
@@ -88,10 +102,118 @@ EG5.Game = function(canvas) {
   this.player2Count = 0;
   this.player1Current = true;
 
+  this.canvasClickCallback = this.canvasClicked.bind(this);
+
 
 };
 
 EG5.Game.prototype = {
+
+  //TEMP method until I resolve how to handle cross-device tap
+  canvasClicked: function(e) {
+    console.log("canvasClicked " + e.pageX + " " + e.pageY);
+    this.handleTapOnBoard(e.pageX, e.pageY);
+  },
+
+
+
+  // ---------------------------------
+  // Lifecycle Methods
+  // ---------------------------------
+
+  beginGame: function() {
+    if(this.currentDot) {
+      delete this.currentDot
+    }
+    this.player1Count = 0;
+    this.player2Count = 0;
+    this.player1Current = true;
+
+    this.resetCanvas();
+    this.createGameboard();
+    this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
+      this.getCurrentPlayerColor());
+    //TODO This is temp until I figure the real cross-device way to capture the user gestures
+    jQuery("#myCanvas").off("click", this.canvasClickCallback);
+    jQuery("#myCanvas").on("click", this.canvasClickCallback);
+  },
+
+  resetCanvas: function() {
+    var canvas = this.canvas;
+    var cvsDims = this.ui.getCanvasDimAndPosition();
+    canvas.width = cvsDims.width;
+    canvas.height = cvsDims.height;
+
+    console.log("Canvas height: " + canvas.height);
+    console.log("Canvas width: " + canvas.width);
+
+    var ctx = this.ctx;
+    ctx.fillStyle = "rgb(32,32,32)";
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+
+    this.params.cvsDimXY.width = canvas.width;
+    this.params.cvsDimXY.height = canvas.height;
+    this.params.cvsOffsetXY.x = cvsDims.x;
+    this.params.cvsOffsetXY.y = cvsDims.y;
+
+    console.log("Canvas dimensions" + this.params.cvsDimXY);
+
+
+  },
+
+  createGameboard: function() {
+    var params = this.params;
+
+    //Calculate the # of horizontal and vertical dots
+    var numHorDots = Math.floor((params.cvsDimXY.width-params.halfDotSep)/params.dotSep);
+    var numVerDots = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
+
+    this.params.cvsDimDots.width = numHorDots;
+    this.params.cvsDimDots.height = numVerDots;
+
+
+    var loX = Math.floor((params.cvsDimXY.width-params.halfDotSep)%params.dotSep);
+    var loY = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
+    var smallest = loX>loY?loY:loX;
+    if(smallest > numHorDots) {
+      var xtra = Math.floor(smallest/numHorDots);
+      console.log("Added " + xtra + " extra");
+      params.dotSep+=xtra;
+      params.halfDotSep = Math.floor(params.dotSep/2)
+    }
+
+    //Record the boundary of the board
+    this.params.boardTLXY = new EG5.Point(1,1);
+    this.params.boardBRXY = new EG5.Point(((numHorDots*params.dotSep))-1, ((numVerDots*params.dotSep))-1);
+
+    console.log("Board TL: " + this.params.boardTLXY);
+    console.log("Board BR: " + this.params.boardBRXY);
+
+    console.log("Game " + numHorDots + "x" + numVerDots + ", Leftover: " + loX + "x" + loY);
+
+    //Create data structures
+    this.horLines = this.createArrays(numHorDots, numVerDots, false);
+    this.verLines = this.createArrays(numHorDots, numVerDots, false);
+    this.boxes = this.createArrays(numHorDots-1, numVerDots-1, false);//TODO: I never use this.  Kill it?
+    //Seems faster if I precompute the XY centers for every Dot.  I had a function to xlate this but
+    //I seemed to call it a lot.  thought about attaching "XY" and "DOT" coords to point, but this seemed
+    //more realsonable.  I know none of this matters given the magnitude of the board - just trying to stretch
+    //my thinking.
+    this.dotCentersXY = this.createArrays(numHorDots, numVerDots, 0);
+
+
+    var xLoc = params.halfDotSep;
+    for(var i = 0; i<numHorDots; i++) {
+      var yLoc = params.halfDotSep;
+      for(var j = 0; j<numVerDots; j++) {
+        this.dotCentersXY[i][j] = new EG5.Point(xLoc, yLoc);
+        this.drawDot(this.dotCentersXY[i][j], params.dotInnerColor, params.dotOuterColor);
+        yLoc+=params.dotSep;
+      }
+      xLoc+=params.dotSep;
+    }
+
+  },
 
   /**
    * Call to update parameters based on passed-in values.
@@ -99,13 +221,15 @@ EG5.Game.prototype = {
   updateParams: function(newParams) {
     //TODO persist names into cookie
     jQuery.extend(this.params, newParams);
-    this.paintCurrentPlayerName();
+    this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
+      this.getCurrentPlayerColor());
   },
 
-  canvasClicked: function(e) {
-    console.log("canvasClicked " + e.pageX + " " + e.pageY);
-    this.handleTapOnBoard(e.pageX, e.pageY);
-  },
+
+
+  // ---------------------------------
+  // Board Logic Methods
+  // ---------------------------------
 
   handleTapOnBoard: function(x,y) {
 
@@ -148,15 +272,8 @@ EG5.Game.prototype = {
         (yDiff > 1) || //more than one away
         (xDiff == yDiff) //same dot, or diagnol
         ) {
-        console.log("Won't draw line since line >1 unit or same dot");
+        console.log("Won't draw line since line >1 unit or same dot (old: " + this.currentDot + ", new: " + this.newDotCoordDot + ")");
         shouldDrawLine = false;
-        /*
-        console.log("Clear current dot " + this.currentDot);
-        var oldDotCenterXY = this.dotToXY(this.currentDot);
-        this.drawDot(oldDotCenterXY, this.params.dotInnerColor, this.params.dotOuterColor);
-        delete this.currentDot;
-        return;
-        */
       }
       var newLine = new EG5.Line(this.currentDot, newDotCoordDot);
       if(this.lineExists(newLine)) {
@@ -228,119 +345,17 @@ EG5.Game.prototype = {
         this.drawDot(newDotCenterXY, this.params.activeDotInnerColor, this.params.activeDotOuterColor);
       }
     }
-
-
-
-
-  },
-
-  getCurrentPlayerColor: function() {
-    return this.player1Current?this.params.p1Color:this.params.p2Color
   },
 
   switchPlayers: function() {
     console.log("Switch players");
     this.player1Current = !this.player1Current;
-    this.paintCurrentPlayerName();
+    this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
+      this.getCurrentPlayerColor());
   },
 
-  paintCurrentPlayerName: function() {
-    this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name, this.getCurrentPlayerColor());
-  },
-
-  beginGame: function() {
-    if(this.currentDot) {
-      delete this.currentDot
-    }
-    this.player1Count = 0;
-    this.player2Count = 0;
-    this.player1Current = true;
-
-    this.sizeCanvas();
-    this.createGameboard();
-    this.paintCurrentPlayerName();
-    //TODO This is temp until I figure the real cross-device way to capture the user gestures
-    jQuery("#myCanvas").off("click", this.canvasClicked.bind(this));
-    jQuery("#myCanvas").on("click", this.canvasClicked.bind(this));
-  },
-
-  sizeCanvas: function() {
-    var canvas = this.canvas;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight-45;
-
-    console.log("Canvas height: " + canvas.height);
-    console.log("Canvas width: " + canvas.width);
-
-    var ctx = this.ctx;
-    ctx.fillStyle = "rgb(32,32,32)";
-    ctx.fillRect(0,0,canvas.width, canvas.height);
-
-    this.params.cvsDimXY.width = canvas.width;
-    this.params.cvsDimXY.height = canvas.height;
-    //Currently hardcoding the assumption that the canvas is at 0,0 of the window, but trying to make
-    //sure my *other* calculations don't make the same assumption
-    this.params.cvsOffsetXY.x = 0;
-    this.params.cvsOffsetXY.y = 0;
-
-    console.log("Canvas dimensions" + this.params.cvsDimXY);
 
 
-  },
-
-  createGameboard: function() {
-    var params = this.params;
-
-    //Calculate the # of horizontal and vertical dots
-    var numHorDots = Math.floor((params.cvsDimXY.width-params.halfDotSep)/params.dotSep);
-    var numVerDots = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
-
-    this.params.cvsDimDots.width = numHorDots;
-    this.params.cvsDimDots.height = numVerDots;
-
-
-    var loX = Math.floor((params.cvsDimXY.width-params.halfDotSep)%params.dotSep);
-    var loY = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
-    var smallest = loX>loY?loY:loX;
-    if(smallest > numHorDots) {
-      var xtra = Math.floor(smallest/numHorDots);
-      console.log("Added " + xtra + " extra");
-      params.dotSep+=xtra;
-      params.halfDotSep = Math.floor(params.dotSep/2)
-    }
-
-    //Record the boundary of the board
-    this.params.boardTLXY = new EG5.Point(1,1);
-    this.params.boardBRXY = new EG5.Point(((numHorDots*params.dotSep))-1, ((numVerDots*params.dotSep))-1);
-
-    console.log("Board TL: " + this.params.boardTLXY);
-    console.log("Board BR: " + this.params.boardBRXY);
-
-    console.log("Game " + numHorDots + "x" + numVerDots + ", Leftover: " + loX + "x" + loY);
-
-    //Create data structures
-    this.horLines = this.createArrays(numHorDots, numVerDots, false);
-    this.verLines = this.createArrays(numHorDots, numVerDots, false);
-    this.boxes = this.createArrays(numHorDots-1, numVerDots-1, false);//TODO: I never use this.  Kill it?
-    //Seems faster if I precompute the XY centers for every Dot.  I had a function to xlate this but
-    //I seemed to call it a lot.  thought about attaching "XY" and "DOT" coords to point, but this seemed
-    //more realsonable.  I know none of this matters given the magnitude of the board - just trying to stretch
-    //my thinking.
-    this.dotCentersXY = this.createArrays(numHorDots, numVerDots, 0);
-
-
-    var xLoc = params.halfDotSep;
-    for(var i = 0; i<numHorDots; i++) {
-      var yLoc = params.halfDotSep;
-      for(var j = 0; j<numVerDots; j++) {
-        this.dotCentersXY[i][j] = new EG5.Point(xLoc, yLoc);
-        this.drawDot(this.dotCentersXY[i][j], params.dotInnerColor, params.dotOuterColor);
-        yLoc+=params.dotSep;
-      }
-      xLoc+=params.dotSep;
-    }
-
-  },
 
   /**
    * Returns an array with the coordinates of each box closed (0, 1, or 2 in length).
@@ -420,6 +435,16 @@ EG5.Game.prototype = {
       this.verLines[l.p1.x][l.p1.y];
   },
 
+
+  // ---------------------------------
+  // Utility Methods
+  // ---------------------------------
+
+
+  getCurrentPlayerColor: function() {
+    return this.player1Current?this.params.p1Color:this.params.p2Color
+  },
+
   createArrays: function(x,y, val) {
     //TODO I feel stupid doing this.  First off, I can use "undefined" rather tha
     //prefill.  Plus, there should be some JS/jquery magic for going this iteration
@@ -450,32 +475,29 @@ EG5.Game.prototype = {
     point.x-=params.cvsOffsetXY.x;
     point.y-=params.cvsOffsetXY.y;
 
-    xDot = Math.round(point.x/params.dotSep);
-    yDot = Math.round(point.y/params.dotSep);
+    var xDot = Math.round(point.x/params.dotSep);
+    var yDot = Math.round(point.y/params.dotSep);
 
-    return new EG5.Point(xDot, yDot);
+    var ret = new EG5.Point(xDot, yDot);
+    console.log("xyToDot x: " + x + ", y: " + y + ", ret: " + ret);
+    return ret;
   },
 
   /**
-   * Returns the center of a dot in canvas coordinates (not currently absolute, of the canvas isn't at 0,0 of the browser).
-   * Can accept x,y or a point
+   * Returns the center of a dot in canvas coordinates (not currently absolute, if the canvas isn't at 0,0 of the browser).
+   *
    */
-/*
-  dotToXY_DEPRICATED: function() {
-    var point;
-    if(arguments.length == 2) {
-      point = {x: arguments[0], y: arguments[1]};
-    }
-    else {
-      point = arguments[0];
-    }
-    return new EG5.Point(this.params.halfDotSep + (point.x*this.params.dotSep), this.params.halfDotSep + (point.y*this.params.dotSep));
-  },
-*/
   dotToXY: function(d) {
     return this.dotCentersXY[d.x][d.y];
   },
 
+  // ---------------------------------
+  // Canvas Painting Methods
+  // ---------------------------------
+
+  /**
+   * Draw a dit at the given x/y coordinate, with the inner and outer colors
+   */
   drawDot: function(d, ic, oc) {
     var ctx = this.ctx;
     ctx.beginPath();
@@ -513,17 +535,15 @@ EG5.Game.prototype = {
   },
 
 
-  //Passed points are in dot coordinates.  Always draws
-  //rtl or ttb
+  /**
+   * Passed points are in dot coordinates.  Always draws rtl or ttb
+   */
   drawLine: function(d1, d2, c) {
     if((d1.x>d2.x) || (d1.y>d2.y)) {
       var foo = d1;
       d1 = d2;
       d2 = foo;
     }
-
-//    console.log("Dot1: " + d1.x + "," + d1.y);
-//    console.log("Dot2: " + d2.x + "," + d2.y);
 
     xy1 = this.dotToXY(d1);
     xy2 = this.dotToXY(d2);
@@ -556,6 +576,11 @@ EG5.Game.prototype = {
 
 };
 
+
+//=================================================
+//            Controller
+//=================================================
+
 EG5.UI = function() {
 };
 
@@ -572,10 +597,45 @@ EG5.UI.prototype = {
 
     $("#confirmRestartButton").on("click", this.confirmRestart.bind(this));
     $("#cancelRestartButton").on("click", this.cancelRestart.bind(this));
+  },
 
 
+  // ---------------------------------
+  // Methods for Game
+  // ---------------------------------
+
+  paintCurrentPlayer: function(name, color) {
+    //The hackery below is because the life of me I could not get
+    //the text to change with a simple ".text" call in jQuery.  Didn't
+    //find anything useful in the JQM docs/stackoverflow
+    console.log("Updating display for player: " + name);
+    var theElement = jQuery("#currentPlayerLabel");
+    var theParent = theElement.parent();
+    jQuery("#currentPlayerLabel").text(name);
+    jQuery("#currentPlayerLabel").replaceWith("<span style=\"color: " + color + "\" id=\"currentPlayerLabel\">"
+      + name +"'s turn</span>");
 
   },
+
+  /**
+   * Returns to the Game the x, y (of upper left) and width/height
+   * for the canvas.  The UI knows of any other controls, and
+   * adjusts the canvas accordingly
+   */
+  getCanvasDimAndPosition: function() {
+    //Currently hardcoding the assumption that the canvas is at 0,0 of the window, but trying to make
+    //sure my *other* calculations don't make the same assumption
+    return {
+      x: 0,
+      y: 0,
+      width: window.innerWidth,
+      height: window.innerHeight-45
+    };
+  },
+
+  // ---------------------------------
+  // UI Callbacks
+  // ---------------------------------
 
   restartGameClicked: function() {
     console.log("Restart clicked");
@@ -597,19 +657,6 @@ EG5.UI.prototype = {
      $("#settingsDialog").popup("open");
   },
 
-  paintCurrentPlayer: function(name, color) {
-    //The hackery below is because the life of me I could not get
-    //the text to change with a simple ".text" call in jQuery.  Didn't
-    //find anything useful in the JQM docs/stackoverflow
-    console.log("Updating display for player: " + name);
-    var theElement = jQuery("#currentPlayerLabel");
-    var theParent = theElement.parent();
-    jQuery("#currentPlayerLabel").text(name);
-    jQuery("#currentPlayerLabel").replaceWith("<span style=\"color: " + color + "\" id=\"currentPlayerLabel\">"
-      + name +"'s turn</span>");
-
-  },
-
   saveSettingsClicked: function() {
     console.log("Save settings selected");
     $("#settingsDialog").popup("close");
@@ -627,31 +674,17 @@ EG5.UI.prototype = {
 
 };
 
+
+//=================================================
+//            Entry Point from .html
+//=================================================
+
 EG5.app = (function() {
   var _init = function() {
-
-//    $("#myCanvas").height($(window).height()-45);
-//    var canvas = '<canvas id="canvas" width="'+$(window).width()+'" height="'+($(window).height()-45)+'"></canvas>';
-
     //Damm voodo for browsers
     document.documentElement.style.overflow = 'hidden';
     document.body.scroll = "no";
     $("[data-role=footer]").toolbar({ tapToggle: false });
-
-//    var wholeContent = $("#wholeContent")[0];
-
-/*
-    //Debug
-    ctx.beginPath();
-    ctx.strokeStyle = "white"
-    ctx.moveTo(0,0);
-    ctx.lineTo(canvas.width, canvas.height);
-    ctx.moveTo(canvas.width, 0);
-    ctx.lineTo(0,canvas.height);
-    ctx.stroke();
-*/
-
-
 
     var game = new EG5.Game($("#myCanvas")[0]);
     var controller = new EG5.UI();
