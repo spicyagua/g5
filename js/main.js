@@ -92,7 +92,8 @@ EG5.Game = function(canvas) {
     p1Color: "#7ebce6",
     p2Color: "#ba3140",
     p1Name: "Player 1",
-    p2Name: "Player 2"
+    p2Name: "Player 2",
+    totalNumBoxes: 0
 
   };
   this.canvas = canvas;
@@ -102,6 +103,7 @@ EG5.Game = function(canvas) {
   this.player1Count = 0;
   this.player2Count = 0;
   this.player1Current = true;
+  this.boxesFilled = 0;
 
   this.canvasClickCallback = this.canvasClicked.bind(this);
 
@@ -129,6 +131,7 @@ EG5.Game.prototype = {
     this.player1Count = 0;
     this.player2Count = 0;
     this.player1Current = true;
+    this.boxesFilled = 0;
 
     this.resetCanvas();
     this.createGameboard();
@@ -158,8 +161,6 @@ EG5.Game.prototype = {
     this.params.cvsOffsetXY.y = cvsDims.y;
 
     console.log("Canvas dimensions" + this.params.cvsDimXY);
-
-
   },
 
   createGameboard: function() {
@@ -196,6 +197,7 @@ EG5.Game.prototype = {
     this.horLines = this.createArrays(numHorDots, numVerDots, false);
     this.verLines = this.createArrays(numHorDots, numVerDots, false);
     this.boxes = this.createArrays(numHorDots-1, numVerDots-1, false);//TODO: I never use this.  Kill it?
+    this.params.totalNumBoxes = (numHorDots-1)*(numVerDots-1);
     //Seems faster if I precompute the XY centers for every Dot.  I had a function to xlate this but
     //I seemed to call it a lot.  thought about attaching "XY" and "DOT" coords to point, but this seemed
     //more realsonable.  I know none of this matters given the magnitude of the board - just trying to stretch
@@ -222,6 +224,8 @@ EG5.Game.prototype = {
   updateParams: function(newParams) {
     //TODO persist names into cookie
     jQuery.extend(this.params, newParams);
+    //This sucks.  I should use one of those nifty 2-way binding libraries for this.  Or, I can
+    //just chill and admit it a a finite number of props I care about.
     this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
       this.getCurrentPlayerColor());
   },
@@ -297,6 +301,9 @@ EG5.Game.prototype = {
             console.log("Draw and record box: " + newBoxes[i]);
             this.boxes[newBoxes[i].x][newBoxes[i].y] = true;//Do I need this for anything?  TODO I don't think I need this structure.
             this.drawBox(newBoxes[i], this.getCurrentPlayerColor());
+            if(this.playerClosedBox(this.player1Current)) {
+              //TODO: I don't think I need the boolean return.  I check later for this.
+            }
           }
         }
         else {
@@ -309,6 +316,9 @@ EG5.Game.prototype = {
       var oldDotCenterXY = this.dotToXY(this.currentDot);
       this.drawDot(oldDotCenterXY, this.params.dotInnerColor, this.params.dotOuterColor);
       delete this.currentDot;
+      if(this.boxesFilled == this.totalNumBoxes) {
+        //TODO Game over
+      }
     }
     else {
       //Make sure there are possible connections to this dot still available
@@ -353,6 +363,15 @@ EG5.Game.prototype = {
     this.player1Current = !this.player1Current;
     this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
       this.getCurrentPlayerColor());
+  },
+  
+  playerClosedBox: function(player1) {
+    if(this.player1Current) {this.player1Count++}else{this.player2Count++};
+    console.log("Player 1: " + this.player1Count + ", Player 2: " + this.player2Count);
+    if(++this.boxesFilled == this.totalNumBoxes) {
+      return true;
+    }
+    return false;
   },
 
 
