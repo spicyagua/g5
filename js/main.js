@@ -76,6 +76,25 @@ EG5.Line.prototype = {
 
 EG5.Game = function(canvas) {
 
+  this.PERSISTENT_PARAMS = [
+    {
+      name: "dotSep",
+      type: "int"
+    },
+    {
+      name: "dotRadius",
+      type: "int"
+    },
+    {
+      name: "p1Name",
+      type: "string"
+    },
+    {
+      name: "p2Name",
+      type: "string"
+    },
+  ];
+
   this.params = {
     dotSep: 70,
     dotRadius: 10,
@@ -93,9 +112,15 @@ EG5.Game = function(canvas) {
     p2Color: "#ba3140",
     p1Name: "Player 1",
     p2Name: "Player 2",
-    totalNumBoxes: 0
+    totalNumBoxes: 0,
+    version: 1//Someday if I choose to change defaults this may come in handy
 
   };
+
+  var savedParams = jQuery.cookie();
+  jQuery.extend(this.params, savedParams);
+  this.correctParamTypes();
+
   this.canvas = canvas;
   this.ctx = canvas.getContext("2d");
   this.params.halfDotSep = Math.floor(this.params.dotSep/2);
@@ -222,12 +247,38 @@ EG5.Game.prototype = {
    * Call to update parameters based on passed-in values.
    */
   updateParams: function(newParams) {
-    //TODO persist names into cookie
+
     jQuery.extend(this.params, newParams);
+    this.correctParamTypes();
+
+    var that = this;
+
+    jQuery.each(this.PERSISTENT_PARAMS, function(index, val) {
+      console.log("Update cookie: " + val.name);
+      jQuery.cookie(val.name, that.params[val.name], {expires: 365});
+    });
+
     //This sucks.  I should use one of those nifty 2-way binding libraries for this.  Or, I can
     //just chill and admit it a a finite number of props I care about.
     this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
       this.getCurrentPlayerColor());
+  },
+
+  /**
+   * There should be a more elegant way to do this, but for some of the numbers
+   * I seem to be having a String append vs. addition, so I convert them
+   * back to numbers.  Remains to be seen if I have to do this for booleans,
+   * or if I have any floats.
+   */
+  correctParamTypes: function() {
+    var that = this;
+    jQuery.each(this.PERSISTENT_PARAMS, function(index, value) {
+      switch(value.type) {
+        case "int":
+          var numVal = parseInt(that.params[value.name]);
+          that.params[value.name] = numVal;
+      }
+    });
   },
 
 
@@ -316,8 +367,13 @@ EG5.Game.prototype = {
       var oldDotCenterXY = this.dotToXY(this.currentDot);
       this.drawDot(oldDotCenterXY, this.params.dotInnerColor, this.params.dotOuterColor);
       delete this.currentDot;
-      if(this.boxesFilled == this.totalNumBoxes) {
-        //TODO Game over
+      if(this.boxesFilled == this.params.totalNumBoxes) {
+        console.log("Game over");
+        this.ui.showGameEnd(this.params.p1Name, this.player1Count,
+          this.params.p2Name, this.player2Count);
+      }
+      else {
+        console.log("Boxes Filled: " + this.boxesFilled + " total " + this.params.totalNumBoxes);
       }
     }
     else {
@@ -364,7 +420,7 @@ EG5.Game.prototype = {
     this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
       this.getCurrentPlayerColor());
   },
-  
+
   playerClosedBox: function(player1) {
     if(this.player1Current) {this.player1Count++}else{this.player2Count++};
     console.log("Player 1: " + this.player1Count + ", Player 2: " + this.player2Count);
@@ -520,9 +576,23 @@ EG5.Game.prototype = {
    */
   drawDot: function(d, ic, oc) {
     var ctx = this.ctx;
+    //Clear old due to alpha
+    ctx.beginPath();
+    ctx.fillStyle = this.params.bgColor;
+    ctx.arc(d.x, d.y, this.params.dotRadius, 2*Math.PI, false);
+    ctx.fill();
+
     ctx.beginPath();
     ctx.arc(d.x, d.y, this.params.dotRadius, 2*Math.PI, false);
-    var gradient = ctx.createRadialGradient(d.x, d.y, Math.floor(this.params.dotRadius*0.5), d.x, d.y, this.params.dotRadius);
+    var p1 = d.x;
+    var p2 = d.y;
+    var p3 = this.params.dotRadius*0.5;
+    var p4 = Math.floor(this.params.dotRadius*0.5);
+    var p5 = this.params.dotRadius;
+    console.log("p1: " + p1 + " p2: " + p2 + " p3: " + p3 + " p4: " + p4 + " p5: " + p5);
+    var gradient = ctx.createRadialGradient(p1, p2, p4, p1, p2, p5);
+//    var gradient = ctx.createRadialGradient(d.x, d.y, Math.floor(this.params.dotRadius*0.5), d.x, d.y, this.params.dotRadius);
+
     gradient.addColorStop(0, ic);
     gradient.addColorStop(1, oc);
     ctx.fillStyle = gradient;
@@ -609,14 +679,16 @@ EG5.UI.prototype = {
   init: function(game) {
     this.game = game;
 
-    $("#settingsButton").on("click", this.openSettingsClicked.bind(this));
-    $("#restartButton").on("click", this.restartGameClicked.bind(this));
+    jQuery("#settingsButton").on("click", this.openSettingsClicked.bind(this));
+    jQuery("#restartButton").on("click", this.restartGameClicked.bind(this));
 
-    $("#saveSettingsButton").on("click", this.saveSettingsClicked.bind(this));
-    $("#cancelSettingsButton").on("click", this.saveSettingsClicked.bind(this));
+    jQuery("#saveSettingsButton").on("click", this.saveSettingsClicked.bind(this));
+    jQuery("#cancelSettingsButton").on("click", this.saveSettingsClicked.bind(this));
 
-    $("#confirmRestartButton").on("click", this.confirmRestart.bind(this));
-    $("#cancelRestartButton").on("click", this.cancelRestart.bind(this));
+    jQuery("#confirmRestartButton").on("click", this.confirmRestart.bind(this));
+    jQuery("#cancelRestartButton").on("click", this.cancelRestart.bind(this));
+
+    jQuery("#winnerBanner").on("popupafterclose", this.winnerBannerClosed.bind(this));
   },
 
 
@@ -653,9 +725,22 @@ EG5.UI.prototype = {
     };
   },
 
+  showGameEnd: function(p1Name, p1Score, p2Name, p2Score) {
+    var txt = "<span id=\"winnerText\"><p>" + p1Name + ": " + p1Score + "</p>" +
+      "<p>" + p2Name + ": " + p2Score + "</p>" +
+      "<p>" + ((p1Score>p2Score)?p1Name:p2Name) + " is the winner!</p></span>";
+    console.log(txt);
+    jQuery("#winnerText").replaceWith(txt);
+    jQuery("#winnerBanner").popup("open");
+  },
+
   // ---------------------------------
   // UI Callbacks
   // ---------------------------------
+
+  winnerBannerClosed: function() {
+    this.game.beginGame.call(this.game);
+  },
 
   restartGameClicked: function() {
     console.log("Restart clicked");
@@ -663,7 +748,7 @@ EG5.UI.prototype = {
   },
 
   confirmRestart: function() {
-    this.game.beginGame();
+    this.game.beginGame.call(this.game);
     jQuery("#restartConfirmDialog").popup("close");
   },
   cancelRestart: function() {
@@ -674,7 +759,9 @@ EG5.UI.prototype = {
     console.log("Settings clicked");
     jQuery("#player1Name").val(this.game.params.p1Name);
     jQuery("#player2Name").val(this.game.params.p2Name);
-     $("#settingsDialog").popup("open");
+    jQuery("#dotSep").val(this.game.params.dotSep);
+    jQuery("#dotRadius").val(this.game.params.dotRadius);
+    jQuery("#settingsDialog").popup("open");
   },
 
   saveSettingsClicked: function() {
@@ -683,7 +770,9 @@ EG5.UI.prototype = {
     this.game.updateParams.call(this.game,
     {
       p1Name: jQuery("#player1Name").val(),
-      p2Name: jQuery("#player2Name").val()
+      p2Name: jQuery("#player2Name").val(),
+      dotRadius: jQuery("#dotRadius").val(),
+      dotSep: jQuery("#dotSep").val()
     });
   },
   cancelSettingsClicked: function() {
@@ -701,6 +790,9 @@ EG5.UI.prototype = {
 
 EG5.app = (function() {
   var _init = function() {
+
+
+
     //Damm voodo for browsers
     document.documentElement.style.overflow = 'hidden';
     document.body.scroll = "no";
@@ -711,8 +803,6 @@ EG5.app = (function() {
     controller.init(game);
     game.ui = controller;
     game.beginGame();
-
-
   };
   return {
     init: _init
