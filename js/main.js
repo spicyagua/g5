@@ -79,6 +79,7 @@ EG5.Game = function(canvas) {
   this.params = {
     dotSep: 70,
     dotRadius: 10,
+    bgColor: "rgb(32,32,32)",
     dotInnerColor: "rgba(250,250, 250, 1)",
     dotOuterColor: "rgba(220, 220, 220, 0.6)",
     activeDotInnerColor: "rgba(245, 233, 20, 1)",
@@ -134,8 +135,8 @@ EG5.Game.prototype = {
     this.ui.paintCurrentPlayer(this.player1Current?this.params.p1Name:this.params.p2Name,
       this.getCurrentPlayerColor());
     //TODO This is temp until I figure the real cross-device way to capture the user gestures
-    jQuery("#myCanvas").off("click", this.canvasClickCallback);
-    jQuery("#myCanvas").on("click", this.canvasClickCallback);
+    jQuery("#myCanvas").off("tap", this.canvasClickCallback);
+    jQuery("#myCanvas").on("tap", this.canvasClickCallback);
   },
 
   resetCanvas: function() {
@@ -148,7 +149,7 @@ EG5.Game.prototype = {
     console.log("Canvas width: " + canvas.width);
 
     var ctx = this.ctx;
-    ctx.fillStyle = "rgb(32,32,32)";
+    ctx.fillStyle = this.params.bgColor;
     ctx.fillRect(0,0,canvas.width, canvas.height);
 
     this.params.cvsDimXY.width = canvas.width;
