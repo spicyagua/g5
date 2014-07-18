@@ -74,6 +74,11 @@ EG5.Line.prototype = {
 //            Game
 //=================================================
 
+
+/**
+ *
+ *
+ */
 EG5.Game = function(canvas) {
 
   this.PERSISTENT_PARAMS = [
@@ -103,11 +108,11 @@ EG5.Game = function(canvas) {
     dotOuterColor: "rgba(220, 220, 220, 0.6)",
     activeDotInnerColor: "rgba(245, 233, 20, 1)",
     activeDotOuterColor: "rgba(182, 175, 116, 0.6)",
-    cvsOffsetXY: new EG5.Point(0,0),
-    cvsDimXY: new EG5.Dimension(0,0),
-    cvsDimDots: new EG5.Dimension(0,0),
-    boardTLXY: 0,
-    boardBRXY:0,
+    cvsOffsetXY: new EG5.Point(0,0),//Offset of canvas from Window origin
+    cvsDimXY: new EG5.Dimension(0,0),//Size of canvas, in XY
+    cvsDimDots: new EG5.Dimension(0,0),//Size of canvas, in Dots
+    boardTLXY: 0,//top-left of the board (subset of canvas), in XY of the window
+    boardBRXY:0,//bottom-right of the board, in XY of the window
     p1Color: "#7ebce6",
     p2Color: "#ba3140",
     p1Name: "Player 1",
@@ -173,9 +178,6 @@ EG5.Game.prototype = {
     canvas.width = cvsDims.width;
     canvas.height = cvsDims.height;
 
-    console.log("Canvas height: " + canvas.height);
-    console.log("Canvas width: " + canvas.width);
-
     var ctx = this.ctx;
     ctx.fillStyle = this.params.bgColor;
     ctx.fillRect(0,0,canvas.width, canvas.height);
@@ -192,31 +194,22 @@ EG5.Game.prototype = {
     var params = this.params;
 
     //Calculate the # of horizontal and vertical dots
-    var numHorDots = Math.floor((params.cvsDimXY.width-params.halfDotSep)/params.dotSep);
-    var numVerDots = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
+    var numHorDots = Math.floor((params.cvsDimXY.width-params.dotSep)/params.dotSep)+1;
+    var numVerDots = Math.floor((params.cvsDimXY.height-params.dotSep)/params.dotSep)+1;
 
-    this.params.cvsDimDots.width = numHorDots;
-    this.params.cvsDimDots.height = numVerDots;
+    this.params.cvsDimDots.width = numHorDots-1;
+    this.params.cvsDimDots.height = numVerDots-1;
 
+    var loXHalf = Math.floor((((params.cvsDimXY.width-params.dotSep)%params.dotSep)/2));
+    var loYHalf = Math.floor(((params.cvsDimXY.height-params.dotSep)%params.dotSep)/2);
 
-    var loX = Math.floor((params.cvsDimXY.width-params.halfDotSep)%params.dotSep);
-    var loY = Math.floor((params.cvsDimXY.height-params.halfDotSep)/params.dotSep);
-    var smallest = loX>loY?loY:loX;
-    if(smallest > numHorDots) {
-      var xtra = Math.floor(smallest/numHorDots);
-      console.log("Added " + xtra + " extra");
-      params.dotSep+=xtra;
-      params.halfDotSep = Math.floor(params.dotSep/2)
-    }
-
-    //Record the boundary of the board
-    this.params.boardTLXY = new EG5.Point(1,1);
-    this.params.boardBRXY = new EG5.Point(((numHorDots*params.dotSep))-1, ((numVerDots*params.dotSep))-1);
+    this.params.boardTLXY = new EG5.Point(loXHalf,loYHalf);
+    this.params.boardBRXY = new EG5.Point((loXHalf + (numHorDots*params.dotSep)), (loYHalf + (numVerDots*params.dotSep)));
 
     console.log("Board TL: " + this.params.boardTLXY);
     console.log("Board BR: " + this.params.boardBRXY);
 
-    console.log("Game " + numHorDots + "x" + numVerDots + ", Leftover: " + loX + "x" + loY);
+    console.log("Game " + this.params.cvsDimDots + ", Leftover: " + (loXHalf*2) + "x" + (loYHalf*2));
 
     //Create data structures
     this.horLines = this.createArrays(numHorDots, numVerDots, false);
@@ -230,9 +223,9 @@ EG5.Game.prototype = {
     this.dotCentersXY = this.createArrays(numHorDots, numVerDots, 0);
 
 
-    var xLoc = params.halfDotSep;
+    var xLoc = params.halfDotSep + this.params.boardTLXY.x;
     for(var i = 0; i<numHorDots; i++) {
-      var yLoc = params.halfDotSep;
+      var yLoc = params.halfDotSep + this.params.boardTLXY.y;
       for(var j = 0; j<numVerDots; j++) {
         this.dotCentersXY[i][j] = new EG5.Point(xLoc, yLoc);
         this.drawDot(this.dotCentersXY[i][j], params.dotInnerColor, params.dotOuterColor);
@@ -298,13 +291,16 @@ EG5.Game.prototype = {
     of existing logic take over.
     */
     if(
-      (x<p.boardTLXY.x) ||
-      (x>p.boardBRXY.x) ||
-      (y<p.boardTLXY.y) ||
-      (y>p.boardBRXY.y) ) {
+      (x<(p.boardTLXY.x+1)) ||
+      (x>(p.boardBRXY.x-1)) ||
+      (y<(p.boardTLXY.y+1)) ||
+      (y>(p.boardBRXY.y-1)) ) {
       //Not on the "board".  Return
       console.log("Click outside board");
       return;
+    }
+    else {
+      console.log("coordinate: " + x + "," + y + " is within TL: " + p.boardTLXY + ", BR: " + p.boardBRXY);
     }
 
 
@@ -546,10 +542,17 @@ EG5.Game.prototype = {
       point = arguments[0];
     }
     var params = this.params;
-    point.x-=params.halfDotSep;
-    point.y-=params.halfDotSep;
+    //Adjust for the canvas offset
     point.x-=params.cvsOffsetXY.x;
     point.y-=params.cvsOffsetXY.y;
+
+    //Adjust for the board offset
+    point.x-=params.boardTLXY.x-params.cvsOffsetXY.x;
+    point.y-=params.boardTLXY.y-params.cvsOffsetXY.y;
+
+    point.x-=params.halfDotSep;
+    point.y-=params.halfDotSep;
+
 
     var xDot = Math.round(point.x/params.dotSep);
     var yDot = Math.round(point.y/params.dotSep);
@@ -564,7 +567,14 @@ EG5.Game.prototype = {
    *
    */
   dotToXY: function(d) {
-    return this.dotCentersXY[d.x][d.y];
+    try {
+      console.log("dotToXY: " + d);
+      return this.dotCentersXY[d.x][d.y];
+    }
+    catch(e) {
+      console.log("Caught exception");
+      console.log(e.stackTrace());
+    }
   },
 
   // ---------------------------------
@@ -589,7 +599,7 @@ EG5.Game.prototype = {
     var p3 = this.params.dotRadius*0.5;
     var p4 = Math.floor(this.params.dotRadius*0.5);
     var p5 = this.params.dotRadius;
-    console.log("p1: " + p1 + " p2: " + p2 + " p3: " + p3 + " p4: " + p4 + " p5: " + p5);
+//    console.log("p1: " + p1 + " p2: " + p2 + " p3: " + p3 + " p4: " + p4 + " p5: " + p5);
     var gradient = ctx.createRadialGradient(p1, p2, p4, p1, p2, p5);
 //    var gradient = ctx.createRadialGradient(d.x, d.y, Math.floor(this.params.dotRadius*0.5), d.x, d.y, this.params.dotRadius);
 
