@@ -338,7 +338,6 @@ EG5.Game.prototype = {
           this.currentDot,
           newDotCoordDot,
           this.params.dotInnerColor);
-        console.log("Recording line: " + newLine.toString());
         this.recordLine(newLine);
 
         var newBoxes = this.testLineClosedBox(newLine);
@@ -385,7 +384,7 @@ EG5.Game.prototype = {
       //Check if the current point has an outbound vector, unless it is the
       //last column
       if(
-        (newDotCoordDot.x != (p.cvsDimDots.width-1)) && //Check if not the last column
+        (newDotCoordDot.x != (p.cvsDimDots.width)) && //Check if not the last column
         (!this.horLines[newDotCoordDot.x][newDotCoordDot.y])) {
         canHighlight = true;
       }
@@ -397,7 +396,7 @@ EG5.Game.prototype = {
       }
       //Outbound (down).  The last row cannot have this.
       if(
-        (newDotCoordDot.y != (p.cvsDimDots.height-1)) &&
+        (newDotCoordDot.y != (p.cvsDimDots.height)) &&
         (!this.verLines[newDotCoordDot.x][newDotCoordDot.y])
         ) {
         canHighlight = true;
@@ -450,7 +449,7 @@ EG5.Game.prototype = {
       }
       //Check below
       if(
-        (l.p1.y != (this.params.cvsDimDots.height-1)) && //make sure not last row
+        (l.p1.y != (this.params.cvsDimDots.height)) && //make sure not last row
         (
           this.verLines[l.p1.x][l.p1.y] && //Left
           this.verLines[l.p2.x][l.p2.y] && //right
@@ -472,7 +471,7 @@ EG5.Game.prototype = {
         ret.push(new EG5.Point(l.p1.x-1, l.p1.y));
       }
       if(
-        (l.p1.x != this.params.cvsDimDots.width-1) && //Don't check last column
+        (l.p1.x != this.params.cvsDimDots.width) && //Don't check last column
         (
           this.horLines[l.p1.x][l.p1.y] && //top
           this.horLines[l.p2.x][l.p2.y] && //bottom
@@ -490,6 +489,7 @@ EG5.Game.prototype = {
    * points, rtl or ttb
    */
   recordLine: function(l) {
+    console.log("Recording line: " + l.toString());
     if(l.horizontal) {
       this.horLines[l.p1.x][l.p1.y] = true;
     }
